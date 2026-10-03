@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#FDF8F2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>存錢小豬記帳本</title>
+<style>
+:root{
+  --bg:#FDF8F2; --paper:#FFFFFF; --sand:#F1E6D8; --sand2:#E6D6C2; --line:#EFE3D3;
+  --cocoa:#5A4434; --dim:#9C8A79; --caramel:#C79C72; --honey:#E9C77B;
+  --out:#CF7F74; --in:#7FA97A; --move:#8497BD; --pink:#F3D9CC;
+  --blob:24px 20px 26px 22px / 22px 26px 20px 24px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0;overscroll-behavior:none}
+button,select,input,label,a{touch-action:manipulation}
+body{background:var(--bg);color:var(--cocoa);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent;overflow:hidden}
+.num{font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px dashed var(--caramel);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+#app{display:flex;flex-direction:column;height:100%;max-width:560px;margin:0 auto}
+header{padding:14px 16px 4px;display:flex;align-items:center;gap:6px}
+header h1{margin:0;font-size:21px;font-weight:800;flex:1}
+.month{display:flex;align-items:center;color:var(--dim)}
+.month button{background:none;border:0;padding:6px 9px;font-size:20px;color:var(--caramel)}
+.month span{min-width:88px;text-align:center;color:var(--cocoa);font-weight:600;font-size:14.5px}
+.gear{background:var(--paper);border:0;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 0 var(--sand2);color:var(--caramel)}
+.gear svg{width:20px;height:20px}
+main{flex:1;overflow-y:auto;padding:4px 16px 120px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.view{display:none}.view.on{display:block}
+.c-out{color:var(--out)}.c-in{color:var(--in)}.c-move{color:var(--move)}
+
+/* 卡片 */
+.card{background:var(--paper);border-radius:var(--blob);padding:16px;margin-bottom:14px;box-shadow:0 3px 0 var(--sand)}
+.card h2{margin:0 0 10px;font-size:16px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.link{background:none;border:0;color:var(--caramel);padding:2px;font-size:14px;font-weight:600}
+
+/* 總覽 */
+.hero{padding:6px 0 12px;text-align:center}
+.hero img{width:72%;max-width:250px;height:auto;display:block;margin:0 auto}
+@keyframes bob{50%{transform:translateY(-4px) rotate(-2deg)}}
+.empty img{width:170px;height:auto;display:block;margin:0 auto}
+.big{font-size:36px;font-weight:800;line-height:1.1}
+.sub{color:var(--dim);font-size:13.5px}
+.subrow{display:flex;gap:16px;color:var(--dim);font-size:14px;margin-top:6px}
+.subrow b{font-weight:700}
+.bar{height:12px;background:var(--sand);border-radius:8px;margin:10px 0 6px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:8px;transition:width .4s;
+  background:repeating-linear-gradient(-45deg,var(--caramel) 0 8px,#D3AE87 8px 16px)}
+.bar i.over{background:var(--out)}
+.row{display:flex;justify-content:space-between;font-size:14px;color:var(--dim)}
+
+.bill{border:0;width:100%;text-align:left;background:var(--sand);border-radius:18px;padding:12px 14px;margin-top:8px;display:block}
+.bill .top{display:flex;justify-content:space-between;align-items:baseline}
+.bill .top b{font-size:15.5px}
+.bill .amt{font-size:22px;font-weight:800}
+.bill .meta{font-size:12.5px;color:var(--dim)}
+.bill .two-col{display:flex;justify-content:space-between;margin-top:6px;gap:10px}
+
+.li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--line)}
+.li:first-child{border-top:0}
+.li .nm{flex:1;min-width:0}
+.li .nm small{display:block;color:var(--dim);font-size:12.5px}
+.li.btn-li{background:none;border:0;border-top:1px dashed var(--line);width:100%;text-align:left}
+.li.btn-li:first-child{border-top:0}
+.mini{height:6px;background:var(--sand);border-radius:4px;margin-top:5px;overflow:hidden}
+.mini i{display:block;height:100%;background:var(--honey);border-radius:4px}
+
+/* 明細 */
+.day{margin-bottom:14px}
+.day h3{margin:0 0 6px 4px;font-size:13px;font-weight:600;color:var(--dim);display:flex;justify-content:space-between}
+.daybox{background:var(--paper);border-radius:var(--blob);box-shadow:0 3px 0 var(--sand);overflow:hidden}
+.tx{display:flex;align-items:center;gap:12px;padding:11px 13px;background:none;border:0;width:100%;text-align:left}
+.tx+.tx{border-top:1px dashed var(--line)}
+.dot{width:38px;height:38px;border-radius:14px 16px 13px 15px;display:grid;place-items:center;font-size:15px;font-weight:800;flex:none}
+.tx .mid{flex:1;min-width:0}
+.tx .mid div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx .meta{font-size:12.5px;color:var(--dim)}
+.tag{display:inline-block;font-size:11px;padding:0 7px;border-radius:9px;background:var(--sand);color:var(--caramel);margin-left:4px;font-weight:600;vertical-align:1px}
+.tag.pend{background:#F0E6F0;color:#9A7BA0}
+.tag.late{background:#F8DEDA;color:#C0574B}
+.tag.ok{background:#E3EFE0;color:#5E8F58}
+.ck{width:22px;height:22px;accent-color:var(--in);flex:none}
+.sbtn{border:0;background:var(--sand);color:var(--cocoa);border-radius:10px;padding:4px 10px;font-size:12.5px;font-weight:600}
+.stmt{background:var(--bg);border-radius:18px;padding:12px 14px;margin-bottom:10px}
+.stmt .acts{margin-top:10px}
+.stmt .f input,.stmt .f select{background:var(--paper)}
+.stmt .btn{padding:9px;font-size:14px}
+.tx .amt{font-weight:700;font-size:16px}
+.tx.future{opacity:.7}
+.empty{text-align:center;color:var(--dim);padding:24px 20px 30px}
+.empty b{display:block;color:var(--cocoa);font-size:16px;margin:6px 0 2px}
+
+/* 統計 */
+.donut-wrap{display:flex;justify-content:center;margin:4px 0 12px}
+.sw{width:11px;height:11px;border-radius:4px;flex:none}
+.pc{color:var(--dim);font-size:13px;width:50px;text-align:right}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px}
+.chip{flex:none;border:0;background:var(--paper);box-shadow:0 2px 0 var(--sand);border-radius:16px;padding:5px 13px;font-size:13.5px;color:var(--dim)}
+.chip.on{background:var(--caramel);color:#fff;box-shadow:0 2px 0 #A98159;font-weight:600}
+
+/* 帳戶 */
+.acct{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--paper);border-radius:var(--blob);box-shadow:0 3px 0 var(--sand);margin-bottom:10px;width:100%;border:0;text-align:left}
+.acct .mid{flex:1}
+.acct .meta{font-size:12.5px;color:var(--dim)}
+.acct .amt{font-weight:700;font-size:16px}
+.section-t{display:flex;justify-content:space-between;align-items:center;margin:18px 4px 8px}
+.section-t h2{margin:0;font-size:15px;color:var(--dim);font-weight:700}
+
+/* 設定 */
+.group{background:var(--paper);border-radius:var(--blob);box-shadow:0 3px 0 var(--sand);margin-bottom:16px;overflow:hidden}
+.set{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:none;border:0;width:100%;text-align:left}
+.set+.set{border-top:1px dashed var(--line)}
+.set .v{color:var(--dim)}
+.set.danger{color:var(--out)}
+.note{color:var(--dim);font-size:13px;padding:0 6px;margin:-6px 0 16px}
+
+/* 導覽 */
+nav{position:fixed;left:0;right:0;bottom:0;background:#FFFBF5;transform:translateZ(0);
+  border-radius:24px 24px 0 0;box-shadow:0 -2px 0 var(--sand);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 80px 1fr 1fr}
+nav button.t{background:none;border:0;padding:10px 0 12px;color:var(--dim);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:600}
+nav button.t svg{width:23px;height:23px}
+nav button.t.on{color:var(--cocoa)}
+nav button.t.on svg{color:var(--caramel)}
+.fab{justify-self:center;align-self:start;margin-top:-24px;width:62px;height:62px;border-radius:26px 30px 27px 29px;border:4px solid var(--bg);
+  background:var(--caramel);color:#fff;font-size:34px;line-height:1;box-shadow:0 4px 0 #A98159}
+.fab:active{transform:translateY(2px);box-shadow:0 2px 0 #A98159}
+
+/* 表單 */
+.mask{position:fixed;inset:0;background:rgba(90,68,52,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.mask.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--paper);border-radius:28px 28px 0 0;
+  padding:10px 18px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .26s cubic-bezier(.2,.8,.2,1);
+  z-index:11;max-height:92%;overflow-y:auto;overscroll-behavior:contain;will-change:transform}
+.sheet.on{transform:none}
+.grip{width:42px;height:5px;border-radius:3px;background:var(--sand2);margin:0 auto 12px}
+.sheet h2{margin:0 0 14px;font-size:18px;font-weight:800}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--sand);border-radius:16px;padding:4px;margin-bottom:14px}
+.seg button{border:0;background:none;padding:8px 0;border-radius:12px;color:var(--dim);font-weight:600}
+.seg button.on{background:var(--paper);color:var(--cocoa);box-shadow:0 2px 0 var(--sand2)}
+.seg button.on[data-t=out]{background:var(--out);color:#fff;box-shadow:none}
+.seg button.on[data-t=in]{background:var(--in);color:#fff;box-shadow:none}
+.seg button.on[data-t=move]{background:var(--move);color:#fff;box-shadow:none}
+.amount-in{display:flex;align-items:baseline;gap:6px;border-bottom:2px dashed var(--sand2);padding:4px 2px 8px;margin-bottom:6px}
+.amount-in span{font-size:22px;color:var(--dim)}
+.amount-in input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:40px;font-weight:800;font-variant-numeric:tabular-nums}
+.amount-in:focus-within{border-color:var(--caramel)}
+.hint{font-size:12.5px;color:var(--dim);margin:0 2px 12px}
+.f{margin-bottom:12px}
+.f label{display:block;font-size:13px;color:var(--dim);margin-bottom:5px;font-weight:600}
+.f input,.f select{width:100%;background:var(--bg);border:2px solid transparent;border-radius:14px;padding:9px 12px;outline:0}
+.f input:focus,.f select:focus{border-color:var(--caramel)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cats button{border:0;background:var(--bg);border-radius:14px;padding:8px 2px;font-size:13.5px;color:var(--dim)}
+.cats button.on{background:var(--honey);color:var(--cocoa);font-weight:700}
+.toggle{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:14px;padding:10px 12px;margin:10px 0 12px;font-weight:600}
+.toggle input{width:20px;height:20px;accent-color:var(--caramel)}
+.banner{background:#F6ECDA;border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.acts{display:flex;gap:10px;margin-top:16px}
+.btn{flex:1;border:0;border-radius:16px;padding:13px;font-weight:700;font-size:16px;background:var(--caramel);color:#fff;box-shadow:0 3px 0 #A98159}
+.btn.ghost{background:var(--sand);color:var(--cocoa);flex:0 0 auto;padding:13px 18px;box-shadow:0 3px 0 var(--sand2)}
+.btn.del{background:none;color:var(--out);flex:0 0 auto;padding:13px 8px;box-shadow:none}
+.addrow{display:flex;gap:8px;margin-top:10px}
+.addrow input{flex:1;background:var(--bg);border:2px solid transparent;border-radius:14px;padding:9px 12px;outline:0}
+.addrow button{border:0;border-radius:14px;background:var(--caramel);color:#fff;padding:0 16px;font-weight:700}
+.x{background:none;border:0;color:var(--out);padding:4px 8px}
+.total-box{text-align:center;background:var(--bg);border-radius:var(--blob);padding:14px;margin:4px 0 12px}
+.brk .li{font-size:14px}
+
+.toast{position:fixed;left:50%;bottom:118px;transform:translate(-50%,20px);background:var(--cocoa);color:var(--paper);padding:9px 18px;border-radius:20px;
+  font-size:14px;opacity:0;transition:.25s;z-index:20;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.askbg{position:fixed;inset:0;z-index:9999;background:rgba(60,40,25,.35);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .15s}
+.askbg.on{opacity:1}
+.askbox{background:var(--paper);border-radius:22px;padding:22px 20px 16px;width:100%;max-width:340px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.askmsg{white-space:pre-line;line-height:1.6;margin-bottom:16px;font-size:15px}
+.askbox .acts{display:flex;gap:10px}.askbox .btn{flex:1}
+.askbox .btn.warn{background:var(--out);box-shadow:none;color:#fff}
+.c-warn{color:#C48A2C}
+#sheet .li select{border:0;background:var(--bg);border-radius:12px;padding:8px 10px;font:inherit;font-size:14px;color:inherit}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 id="title">總覽</h1>
+    <div class="month" id="monthBox">
+      <button aria-label="上個月" onclick="shiftMonth(-1)">‹</button>
+      <span id="monthLbl" class="num"></span>
+      <button aria-label="下個月" onclick="shiftMonth(1)">›</button>
+    </div>
+    <button class="gear" aria-label="設定" onclick="go('set')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/></svg></button>
+  </header>
+  <main>
+    <section class="view on" id="v-home"></section>
+    <section class="view" id="v-list"></section>
+    <section class="view" id="v-stats"></section>
+    <section class="view" id="v-accts"></section>
+    <section class="view" id="v-set"></section>
+    <section class="view" id="v-pay"></section>
+  </main>
+</div>
+
+<nav><div class="in">
+  <button class="t on" data-v="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11l8-6.5 8 6.5v8.5a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>總覽</button>
+  <button class="t" data-v="accts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10.5h18M15.5 15h2.5"/></svg>帳戶</button>
+  <button class="fab" aria-label="記一筆" onclick="openTx()">+</button>
+  <button class="t" data-v="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 6.5h14M5 12h14M5 17.5h9"/></svg>明細</button>
+  <button class="t" data-v="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v8h8"/></svg>統計</button>
+</div></nav>
+
+<div class="mask" id="mask" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" accept="application/json,.json" hidden>
+<input type="file" id="imgIn" accept="image/*" hidden>
+<input type="file" id="xlsIn" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
+
+<script>
+/* ================= 小豬吉祥物（原創） ================= */
+function pig(w=96, coin=false){
+  return `<svg class="pig" width="${w}" height="${w*0.9}" viewBox="0 0 120 108" aria-hidden="true">
+    ${coin?`<circle cx="57" cy="12" r="9" fill="#E9C77B" stroke="#5A4434" stroke-width="2.6"/><path d="M57 8v8" stroke="#5A4434" stroke-width="2.2" stroke-linecap="round"/>`:''}
+    <path d="M18 62q-9-3-6-10q4-5 7 1" fill="none" stroke="#5A4434" stroke-width="2.8" stroke-linecap="round"/>
+    <rect x="36" y="80" width="12" height="16" rx="5" fill="#EBC3B3" stroke="#5A4434" stroke-width="2.8"/>
+    <rect x="70" y="80" width="12" height="16" rx="5" fill="#EBC3B3" stroke="#5A4434" stroke-width="2.8"/>
+    <path d="M36 36l-3-15 15 8" fill="#F3D9CC" stroke="#5A4434" stroke-width="2.8" stroke-linejoin="round"/>
+    <path d="M74 31l13-11 1 16" fill="#F3D9CC" stroke="#5A4434" stroke-width="2.8" stroke-linejoin="round"/>
+    <ellipse cx="60" cy="60" rx="42" ry="31" fill="#F3D9CC" stroke="#5A4434" stroke-width="2.8"/>
+    <path d="M48 34h14" stroke="#5A4434" stroke-width="3.4" stroke-linecap="round"/>
+    <ellipse cx="98" cy="62" rx="10" ry="9" fill="#EBC3B3" stroke="#5A4434" stroke-width="2.8"/>
+    <circle cx="95" cy="62" r="1.8" fill="#5A4434"/><circle cx="101.5" cy="62" r="1.8" fill="#5A4434"/>
+    <path d="M73 52q4-4 8 0" fill="none" stroke="#5A4434" stroke-width="2.6" stroke-linecap="round"/>
+    <ellipse cx="80" cy="68" rx="6" ry="3.4" fill="#E9A99A" opacity=".75"/>
+    <path d="M70 72q5 4 10 1" fill="none" stroke="#5A4434" stroke-width="2.4" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/* ================= 插圖 ================= */
+const DEFAULT_IMG='data:image/jpeg;base64,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';
+const ICON_IMG='data:image/jpeg;base64,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';
+const IMG_KEY='ledger_img';
+function artSrc(){try{return localStorage.getItem(IMG_KEY)||DEFAULT_IMG}catch(e){return DEFAULT_IMG}}
+const art=()=>`<img src="${artSrc()}" alt="">`;
+
+/* ================= 資料層 ================= */
+const KEY='ledger_v1';
+const TYPES={cash:'現金',bank:'銀行',credit:'信用卡',epay:'電子支付',loan:'貸款'};
+const FREQ={monthly:'每月',weekly:'每週',yearly:'每年'};
+const PALETTE=['#C79C72','#CF7F74','#7FA97A','#8497BD','#B592BD','#E0B45E','#6FA9B3','#D596A3','#A3B86E','#B3A08A','#8E86C2','#D89A6A'];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const pad=n=>String(n).padStart(2,'0');
+const ds=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const pd=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const today=()=>ds(new Date());
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return ds(d)};
+const mlen=(y,m)=>new Date(y,m+1,0).getDate();
+function mkDate(y,m,day){const d=new Date(y,m,1);return new Date(d.getFullYear(),d.getMonth(),Math.min(day,mlen(d.getFullYear(),d.getMonth())))}
+const md=s=>{const d=pd(s);return `${d.getMonth()+1}/${d.getDate()}`};
+
+function defaults(){
+  return {
+    accounts:[
+      {id:uid(),name:'現金',type:'cash',init:0},
+      {id:uid(),name:'銀行帳戶',type:'bank',init:0},
+      {id:uid(),name:'信用卡',type:'credit',init:0,stmtDay:15,dueDay:1},
+      {id:uid(),name:'LINE Pay',type:'epay',init:0}
+    ],
+    categories:{out:['餐飲','交通','購物','居家','娛樂','訂閱','醫療','其他'],in:['薪資','獎金','投資','其他']},
+    projects:[],txs:[],installments:[],recurring:[],budget:0
+  };
+}
+let db;
+function migrate(){
+  db.salary||={};db.salary.jobs||=[];db.salary.months||={};db.salary.bonuses||=[];db.stmts||={};db.projects||=[];db.txs||=[];db.installments||=[];db.recurring||=[];db.budget||=0;
+  db.categories||={out:['其他'],in:['其他']};
+}
+function load(){
+  try{db=JSON.parse(localStorage.getItem(KEY))||defaults()}catch(e){db=defaults()}
+  migrate();
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(db))}
+  catch(e){toast('無法儲存：瀏覽器儲存空間已滿或被停用')}
+}
+
+/* ================= 工具 ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('zh-TW');
+const acct=id=>db.accounts.find(a=>a.id===id);
+const acctName=id=>(acct(id)||{name:'(已刪除)'}).name;
+const projName=id=>(db.projects.find(p=>p.id===id)||{}).name;
+const cards=()=>db.accounts.filter(a=>a.type==='credit');
+const loans=()=>db.accounts.filter(a=>a.type==='loan'&&a.loan);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1900)}
+
+let cur=new Date();cur.setDate(1);
+const ym=()=>`${cur.getFullYear()}-${pad(cur.getMonth()+1)}`;
+function shiftMonth(n){cur.setMonth(cur.getMonth()+n);render()}
+const monthTxs=()=>db.txs.filter(t=>t.date.startsWith(ym()));
+
+function balance(a){
+  const td=today();let b=+a.init||0;
+  for(const t of db.txs){
+    if(t.date>td)continue;
+    if(t.type==='out'&&t.accountId===a.id)b-=t.amount;
+    if(t.type==='in'&&t.accountId===a.id)b+=t.amount;
+    if(t.type==='move'){if(t.accountId===a.id)b-=t.amount;if(t.toAccountId===a.id)b+=t.amount}
+  }
+  return b;
+}
+
+/* 下一個要繳款的日期（今天以後最近的一次） */
+function nextDue(c){
+  if(!c.stmtDay||!c.dueDay)return null;
+  const td=today(),t=new Date();
+  for(let k=-2;k<=1;k++){const d=cycle(c,t.getFullYear(),t.getMonth()+k).due;if(d&&d>=td)return d}
+  return null;
+}
+/* 信用卡額度：已用＝目前欠款＋分期未入帳的部分（銀行會把分期剩餘本金整筆佔用額度） */
+function cardUse(c,extra=0){
+  const limit=+c.limit||0;let b=+c.init||0;
+  for(const t of db.txs){
+    if(t.type==='out'&&t.accountId===c.id)b-=t.amount;
+    if(t.type==='in'&&t.accountId===c.id)b+=t.amount;
+    if(t.type==='move'){if(t.accountId===c.id)b-=t.amount;if(t.toAccountId===c.id)b+=t.amount}
+  }
+  const used=Math.max(0,-b)+extra;
+  return {limit,used,bal:b,avail:limit-used,pct:limit?Math.min(100,used/limit*100):0};
+}
+function limitBar(c){
+  const U=cardUse(c);if(!U.limit)return '';
+  const col=U.avail<0?'var(--out)':U.pct>=80?'var(--honey)':'var(--caramel)';
+  return `<div class="mini" style="margin:8px 0 4px"><i style="width:${U.pct}%;background:${col}"></i></div>
+    <div class="sub" style="display:flex;justify-content:space-between"><span>已用 ${money(U.used)}／額度 ${money(U.limit)}</span><b class="${U.avail<0?'c-out':''}">${U.avail<0?'超過 '+money(-U.avail):'可用 '+money(U.avail)}</b></div>`;
+}
+
+/* ================= 週期性付款 ================= */
+function occurrences(r,from,to){
+  if(!r.start)return[];
+  const lo=from>r.start?from:r.start;
+  const hi=r.end&&r.end<to?r.end:to;
+  if(lo>hi)return[];
+  const out=[];
+  if(r.freq==='weekly'){
+    let d=pd(r.start);
+    const gap=Math.max(0,Math.floor((pd(lo)-d)/864e5/7));
+    d.setDate(d.getDate()+gap*7);
+    while(ds(d)<lo)d.setDate(d.getDate()+7);
+    while(ds(d)<=hi){out.push(ds(d));d.setDate(d.getDate()+7)}
+  }else if(r.freq==='yearly'){
+    const s=pd(r.start);
+    for(let y=pd(lo).getFullYear();y<=pd(hi).getFullYear();y++){
+      const x=ds(mkDate(y,s.getMonth(),s.getDate()));if(x>=lo&&x<=hi)out.push(x);
+    }
+  }else{
+    const a=pd(lo),b=pd(hi);
+    for(let y=a.getFullYear(),m=a.getMonth();y<b.getFullYear()||(y===b.getFullYear()&&m<=b.getMonth());m++,(m>11&&(m=0,y++))){
+      const x=ds(mkDate(y,m,+r.day||1));if(x>=lo&&x<=hi)out.push(x);
+    }
+  }
+  return out;
+}
+function recTx(r,date){
+  return {id:uid(),ts:Date.now(),type:r.type,amount:r.amount,accountId:r.accountId,toAccountId:'',
+    category:r.category,projectId:r.projectId||'',date,note:r.name,recId:r.id};
+}
+function postRecurring(){
+  const td=today();let n=0;
+  for(const r of db.recurring){
+    if(!r.start||r.start>td)continue;
+    const from=r.posted?addDays(r.posted,1):r.start;
+    for(const d of occurrences(r,from,td)){db.txs.push(recTx(r,d));n++}
+    r.posted=td;
+  }
+  if(n)save();
+  return n;
+}
+const nextOcc=r=>occurrences(r,addDays(today(),1),addDays(today(),400))[0];
+
+/* ================= 信用卡帳單週期 ================= */
+function cycle(card,y,m){
+  const S=+card.stmtDay||31;
+  const end=mkDate(y,m,S), prevEnd=mkDate(y,m-1,S);
+  if(card.stmtExcl){end.setDate(end.getDate()-1);prevEnd.setDate(prevEnd.getDate()-1)}
+  const start=new Date(prevEnd);start.setDate(start.getDate()+1);
+  let due=null;
+  if(card.dueDay){const D=+card.dueDay;due=ds(mkDate(y,dueSame(card)?m:m+1,D))}
+  const d=new Date(y,m,1);
+  return {start:ds(start),end:ds(end),due,y:d.getFullYear(),m:d.getMonth()};
+}
+const dueSame=c=>c.dueMonth==='same'||(c.dueMonth!=='next'&&+c.dueDay>(+c.stmtDay||31));
+function duePreview(c){
+  if(!c.stmtDay||!c.dueDay)return '';
+  const t=new Date(),cy=cycle(c,t.getFullYear(),t.getMonth());
+  return `例：${md(cy.end)} 結帳（${md(cy.start)}–${md(cy.end)} 的消費），最晚 ${md(cy.due)} 繳款`;
+}
+/* ===== 信用卡帳本：已結帳帳單 + 分次繳款（先繳舊帳） ===== */
+const skey=(c,end)=>c.id+'|'+end;
+function closedCycles(c){
+  const oc=openCycle(c);let first=null;
+  for(const t of db.txs){if(t.accountId!==c.id||t.type==='move'&&t.toAccountId===c.id)continue;
+    const e=t.postDate||t.date;if(!first||e<first)first=e}
+  if(!first||first>=oc.start)return[];
+  const f=pd(first);let y=f.getFullYear(),m=f.getMonth();
+  if(first>cycle(c,y,m).end)m++;
+  const out=[];
+  for(let i=0;i<240;i++){const cy=cycle(c,y,m+i);if(cy.end>=oc.start)break;out.push(cy)}
+  return out;
+}
+function cardLedger(c){
+  const td=today(),stmts=[];
+  if((+c.init||0)<0)stmts.push({opening:true,start:'',end:'',due:null,calc:-c.init,amount:-c.init});
+  for(const cy of closedCycles(c)){
+    const calc=payable(c,cy.start,cy.end).total,st=db.stmts[skey(c,cy.end)]||{};
+    const bank=st.bank!=null&&st.bank!==''?+st.bank:null;
+    stmts.push({...cy,calc,bank,reconciled:!!st.reconciled,amount:bank!=null?bank:calc});
+  }
+  let pool=db.txs.filter(t=>t.type==='move'&&t.toAccountId===c.id&&t.date<=td).reduce((s,t)=>s+t.amount,0);
+  pool+=stmts.filter(x=>x.amount<0).reduce((s,x)=>s-x.amount,0);
+  for(const x of stmts){
+    const need=Math.max(0,x.amount),use=Math.min(pool,need);pool-=use;
+    x.paid=use;x.remain=need-use;
+    x.status=x.remain<=0?(need>0?'已繳清':'無須繳款'):x.due&&x.due<td?'已逾期':use>0?'部分繳款':'未繳';
+  }
+  const oc=openCycle(c),ost=db.stmts[skey(c,oc.end)]||{};
+  const open={...oc,calc:payable(c,oc.start,oc.end).total,reconciled:!!ost.reconciled};
+  return {c,stmts,open,credit:pool,unpaid:stmts.reduce((s,x)=>s+x.remain,0),
+    target:stmts.find(x=>x.remain>0)};
+}
+const stTag=st=>`<span class="tag ${st==='已逾期'?'late':st==='已繳清'||st==='無須繳款'?'ok':''}">${st}</span>`;
+function openCycle(card){
+  const t=new Date();let y=t.getFullYear(),m=t.getMonth();
+  if(ds(t)>cycle(card,y,m).end)m++;
+  return cycle(card,y,m);
+}
+function payable(card,from,to){
+  const td=today(),items=[];let paid=0;
+  for(const t of db.txs){
+    if(t.type==='move'&&t.toAccountId===card.id){if(t.date>=from&&t.date<=to)paid+=t.amount;continue}
+    if(t.accountId!==card.id)continue;
+    const eff=t.postDate||t.date;
+    if(eff<from||eff>to)continue;
+    const kind=t.instId?'inst':t.recId?'rec':t.type==='in'?'refund':'normal';
+    const sign=t.type==='in'?-1:1;
+    items.push({id:t.id,date:eff,orig:t.date,name:t.type==='move'?'轉出／預借':(t.note||t.category),amount:sign*t.amount,kind,pending:eff>td,
+      checked:!!t.checked,deferred:!!t.postDate&&t.postDate!==t.date,label:t.instId?`分期 ${t.instNo}/${t.instN}`:''});
+  }
+  const pStart=addDays(td,1)>from?addDays(td,1):from;
+  for(const r of db.recurring){
+    if(r.accountId!==card.id)continue;
+    for(const d of occurrences(r,pStart,to))
+      items.push({date:d,name:r.name,amount:(r.type==='in'?-1:1)*r.amount,kind:'recF',pending:true});
+  }
+  items.sort((a,b)=>a.date.localeCompare(b.date));
+  const sum=k=>items.filter(i=>k.includes(i.kind)).reduce((s,i)=>s+i.amount,0);
+  return {items,paid,total:items.reduce((s,i)=>s+i.amount,0),
+    normal:sum(['normal']),inst:sum(['inst']),rec:sum(['rec']),recF:sum(['recF']),refund:sum(['refund'])};
+}
+
+/* ================= 畫面切換 ================= */
+let view='home';
+function go(v){view=v;render()}
+document.querySelectorAll('nav .t').forEach(b=>b.onclick=()=>go(b.dataset.v));
+function render(){
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+view));
+  document.querySelectorAll('nav .t').forEach(x=>x.classList.toggle('on',x.dataset.v===view));
+  $('#title').textContent={home:'總覽',list:'明細',stats:'統計',accts:'帳戶',set:'設定',pay:'薪資與配置'}[view];
+  $('#monthBox').style.visibility=(view==='list'||view==='stats'||view==='pay')?'visible':'hidden';
+  $('#monthLbl').textContent=`${cur.getFullYear()} 年 ${cur.getMonth()+1} 月`;
+  ({home:renderHome,list:renderList,stats:renderStats,accts:renderAccts,set:renderSet,pay:renderPay})[view]();
+}
+
+function budgetHTML(spent){
+  if(!db.budget)return `<div class="row"><span>還沒設定每月預算</span><button class="link" onclick="editBudget()">設定預算</button></div>`;
+  const pct=spent/db.budget*100,left=db.budget-spent;
+  return `<div class="row"><span>預算 ${money(db.budget)}</span><span class="${left<0?'c-out':''}">${left<0?'超支 '+money(-left):'還剩 '+money(left)}</span></div>
+    <div class="bar"><i class="${pct>100?'over':''}" style="width:${Math.min(pct,100)}%"></i></div>
+    <div class="row"><span>已用 ${pct.toFixed(0)}%</span></div>`;
+}
+
+/* ================= 總覽 ================= */
+function renderHome(){
+  const td=today(), thisMonth=td.slice(0,7);
+  const mt=db.txs.filter(t=>t.date.startsWith(thisMonth));
+  const out=mt.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+  const inc=mt.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+
+  let h=`<div class="hero">${art()}</div>
+  <div class="card">
+    <div class="sub">${+thisMonth.slice(5)} 月支出</div>
+    <div class="big num c-out">${money(out)}</div>
+    <div class="subrow num"><span>收入 <b class="c-in">${money(inc)}</b></span><span>結餘 <b>${money(inc-out)}</b></span></div>
+    <div style="margin-top:12px">${budgetHTML(out)}</div>
+  </div>`;
+
+  // 信用卡：結帳後的待繳款（依繳款日分組）
+  const cs=cards(),Ls=cs.map(cardLedger),allUnpaid=Ls.reduce((s,L)=>s+L.unpaid,0);
+  h+=`<div class="card"><h2>信用卡待繳<span><button class="link" onclick="openCardDates()">結帳／繳款日</button>　<button class="link" onclick="openPay()">區間試算</button></span></h2>`;
+  if(!cs.length)h+=`<div class="sub">還沒有信用卡帳戶。到「帳戶」新增後，結帳後的待繳金額會出現在這裡。</div>`;
+  else h+=`<div class="row" style="margin-bottom:4px"><span>所有卡未繳總額</span><b class="num ${allUnpaid>0?'c-out':''}" style="font-size:17px">${money(allUnpaid)}</b></div>`;
+  const groups={};
+  for(const L of Ls){
+    const key=L.target?(L.target.due||'0000-期初'):(L.open.due||'9999-未設定');
+    (groups[key]||=[]).push(L);
+  }
+  for(const key of Object.keys(groups).sort()){
+    const g=groups[key];
+    let head;
+    if(key==='0000-期初')head=`<b>期初未繳</b>`;
+    else if(key==='9999-未設定')head=`<b>本期累計</b>`;
+    else{const days=Math.round((pd(key)-pd(td))/864e5);
+      head=`<b>${md(key)} 前繳　<span class="meta" style="font-weight:600;color:${days<=3?'var(--out)':'var(--dim)'}">${days<0?`逾期 ${-days} 天`:days===0?'今天到期':'還有 '+days+' 天'}</span></b>`}
+    const tot=g.reduce((s,L)=>s+(L.target?L.target.remain:Math.max(0,L.open.calc)),0);
+    h+=`<div class="bill"><div class="top">${head}<span class="amt num">${money(tot)}</span></div>
+      ${g.map(L=>{const T=L.target;
+        return `<button class="li btn-li" style="padding:7px 0" onclick="openCard('${L.c.id}')"><span class="nm">${esc(L.c.name)}
+          <small>${T?(T.opening?'期初欠款':`${md(T.end)} 帳單`)+(T.paid>0?`・已繳 ${money(T.paid)}`:'')+(T.reconciled?'・已對帳':''):`累計中・${md(L.open.end)} 結帳`}</small></span>
+          <span class="num" style="text-align:right">${money(T?T.remain:L.open.calc)}
+            <small style="display:block;font-size:12px">${T?stTag(T.status):'<span class="meta">金額還會變動</span>'}${L.unpaid>(T?T.remain:0)?`<span class="meta"> 未繳總額 ${money(L.unpaid)}</span>`:''}</small></span></button>`}).join('')}
+    </div>`;
+  }
+  const unset=cs.filter(c=>!c.dueDay||!c.stmtDay);
+  if(unset.length)h+=`<p class="hint" style="margin:10px 2px 0">${unset.map(c=>esc(c.name)).join('、')} 還沒設定結帳日或最後繳款日，<button class="link" onclick="openCardDates()">現在設定</button></p>`;
+  h+=`</div>`;
+
+  // 薪資與配置
+  if(jobs().length){
+    const al=allocCalc(thisMonth),inc=monthIncome(thisMonth);
+    h+=`<button class="card" style="display:block;width:100%;border:0;text-align:left" onclick="cur=new Date();cur.setDate(1);go('pay')">
+      <h2>${+thisMonth.slice(5)} 月預估實收<span class="num c-in">${money(inc.salary+inc.bonus)}</span></h2>
+      ${jobs().map(j=>{let P=payInfo(j,thisMonth);
+        if(j.payMonth==='next'){const pm=new Date(+thisMonth.slice(0,4),+thisMonth.slice(5)-2,1),pym=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`,Q=payInfo(j,pym);if(!Q.tx)P=Q}
+        return `<div class="row" style="padding:2px 0"><span>${esc(j.name)} ${md(P.date)} 發薪</span><span class="tag ${P.cls}" style="margin:0">${P.st}</span></div>`}).join('')}
+      <div style="border-top:1px dashed var(--line);margin:8px 0 6px"></div>
+      ${al.rows.map(({b,amt,spent})=>`<div class="row" style="padding:3px 0"><span>${esc(b.name)}</span><span class="num">${spent!=null?`${money(spent)} / `:''}${money(amt)}</span></div>`).join('')}
+      <div class="sub" style="margin-top:6px">${al.A.fixed&&al.fx.total?`已先保留固定支出 ${money(al.fx.total)}・`:''}點這裡調整</div></button>`;
+  }else h+=`<button class="card" style="display:block;width:100%;border:0;text-align:left" onclick="go('pay')"><h2>薪資與金錢配置<span class="link">設定</span></h2><div class="sub">填入正職和兼職薪資，估算每月實收並分配儲蓄和生活費。</div></button>`;
+
+  // 貸款
+  if(loans().length){
+    h+=`<div class="card"><h2>貸款</h2>`+loans().map(a=>{
+      const nx=lSchedule(a)[0],bal=lBal(a),done=lNextNo(a)-1,M=a.loan.months;
+      const days=nx?Math.round((pd(nx.date)-pd(td))/864e5):0;
+      return `<button class="li btn-li" onclick="openLoanView('${a.id}')"><span class="nm">${esc(a.name)}
+        <small>${nx?`${md(nx.date)} 扣款・${days===0?'今天':days<0?`逾期 ${-days} 天`:`還有 ${days} 天`}・本金 ${money(nx.prin)}＋利息 ${money(nx.interest)}`:'已全部還清'}</small>
+        <small>剩餘本金 ${money(bal)}・已繳 ${done}/${M} 期</small><div class="mini"><i style="width:${Math.min(100,done/M*100)}%"></i></div></span>
+        <span class="num" style="text-align:right;font-weight:700">${nx?money(nx.pay):'—'}</span></button>`}).join('')+`</div>`;
+  }
+
+  // 即將扣款
+  const up=[];
+  for(const r of db.recurring)for(const d of occurrences(r,addDays(td,1),addDays(td,30)))up.push({r,d});
+  up.sort((a,b)=>a.d.localeCompare(b.d));
+  h+=`<div class="card"><h2>30 天內的週期性款項<button class="link" onclick="openRecList()">管理</button></h2>`;
+  h+=up.length?up.slice(0,8).map(({r,d})=>`<div class="li"><span class="nm">${esc(r.name)}<small>${md(d)}・${esc(acctName(r.accountId))}</small></span>
+      <span class="num ${r.type==='in'?'c-in':''}">${r.type==='in'?'+':'-'}${money(r.amount)}</span></div>`).join('')
+    :`<div class="sub">沒有即將到來的款項。房租、訂閱、保費可以設成週期性付款，時間到會自動記帳。</div>`;
+  h+=`</div>`;
+
+  // 分期
+  const plans=db.installments.map(p=>{
+    const ch=db.txs.filter(t=>t.instId===p.id);
+    const done=ch.filter(t=>t.date<=td).length;
+    return {p,done,n:ch.length,left:ch.filter(t=>t.date>td).reduce((s,t)=>s+t.amount,0)};
+  }).filter(x=>x.done<x.n);
+  if(plans.length){
+    h+=`<div class="card"><h2>分期中</h2>`+plans.map(({p,done,n,left})=>`<button class="li btn-li" onclick="openPlan('${p.id}')">
+      <span class="nm">${esc(p.title)}<small>${esc(acctName(p.accountId))}・已付 ${done}/${n} 期</small>
+      <div class="mini"><i style="width:${done/n*100}%"></i></div></span>
+      <span class="num" style="text-align:right">${money(left)}<small style="display:block;color:var(--dim);font-size:12px">未付</small></span></button>`).join('')+`</div>`;
+  }
+  $('#v-home').innerHTML=h;
+}
+
+/* ================= 明細 ================= */
+function renderList(){
+  const txs=monthTxs();
+  const out=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+  const inc=txs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+  let h=`<div class="card"><div class="sub">本月支出</div><div class="big num c-out">${money(out)}</div>
+    <div class="subrow num"><span>收入 <b class="c-in">${money(inc)}</b></span><span>結餘 <b>${money(inc-out)}</b></span></div></div>`;
+  if(!txs.length){$('#v-list').innerHTML=h+`<div class="empty">${art()}<b>這個月還沒有紀錄</b>點下方的 + 記下第一筆</div>`;return}
+  const byDay={};
+  txs.sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts).forEach(t=>(byDay[t.date]||=[]).push(t));
+  const wk='日一二三四五六';
+  for(const d in byDay){
+    const dayOut=byDay[d].filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+    const dt=pd(d);
+    h+=`<div class="day"><h3><span>${dt.getMonth()+1}/${dt.getDate()}（${wk[dt.getDay()]}）</span><span class="num">${dayOut?'支出 '+money(dayOut):''}</span></h3><div class="daybox">`;
+    for(const t of byDay[d])h+=txRow(t);
+    h+=`</div></div>`;
+  }
+  $('#v-list').innerHTML=h;
+}
+function txRow(t){
+  const col={out:'var(--out)',in:'var(--in)',move:'var(--move)'}[t.type];
+  const bg={out:'#F7E3DE',in:'#E5EFE2',move:'#E3E8F2'}[t.type];
+  const title=t.type==='move'?'轉帳':t.category;
+  const meta=t.type==='move'?`${esc(acctName(t.accountId))} → ${esc(acctName(t.toAccountId))}`:esc(acctName(t.accountId));
+  const p=projName(t.projectId);
+  const tags=(t.instId?`<span class="tag">分期 ${t.instNo}/${t.instN}</span>`:'')+(t.recId?`<span class="tag">週期</span>`:'')+(t.loanId?`<span class="tag">貸款</span>`:'')+(t.postDate&&t.postDate!==t.date?`<span class="tag">延後入帳</span>`:'')
+    +(p?`<span class="tag">${esc(p)}</span>`:'')+(t.date>today()?`<span class="tag pend">未入帳</span>`:'');
+  return `<button class="tx ${t.date>today()?'future':''}" onclick="openTx('${t.id}')">
+    <div class="dot" style="color:${col};background:${bg}">${esc(title.slice(0,1))}</div>
+    <div class="mid"><div>${esc(title)}${tags}</div><div class="meta">${meta}${t.note?'｜'+esc(t.note):''}</div></div>
+    <div class="amt num" style="color:${col}">${{out:'-',in:'+',move:''}[t.type]}${money(t.amount)}</div></button>`;
+}
+
+/* ================= 統計 ================= */
+let statType='out',statProj='all';
+function donut(items,total){
+  const R=70,C=2*Math.PI*R;let off=0;
+  const arcs=items.map((it,i)=>{const len=it.v/total*C;
+    const s=`<circle r="${R}" cx="90" cy="90" fill="none" stroke="${PALETTE[i%PALETTE.length]}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"/>`;
+    off+=len;return s}).join('');
+  return `<svg width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="分類佔比圖">
+    <circle r="${R}" cx="90" cy="90" fill="none" stroke="var(--sand)" stroke-width="26"/>${arcs}
+    <text x="90" y="84" text-anchor="middle" fill="var(--dim)" font-size="12">${statType==='out'?'總支出':'總收入'}</text>
+    <text x="90" y="106" text-anchor="middle" fill="var(--cocoa)" font-size="19" font-weight="800">${money(total)}</text></svg>`;
+}
+function renderStats(){
+  let txs=monthTxs().filter(t=>t.type===statType);
+  if(statProj!=='all')txs=txs.filter(t=>(t.projectId||'')===(statProj==='none'?'':statProj));
+  const sums={};txs.forEach(t=>sums[t.category]=(sums[t.category]||0)+t.amount);
+  const items=Object.entries(sums).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
+  const total=items.reduce((s,i)=>s+i.v,0);
+  let h=`<div class="seg" style="margin-top:6px">
+    <button data-t="out" class="${statType==='out'?'on':''}" onclick="statType='out';renderStats()">支出</button>
+    <button data-t="in" class="${statType==='in'?'on':''}" onclick="statType='in';renderStats()">收入</button></div>`;
+  if(db.projects.length){
+    h+=`<div class="chips"><button class="chip ${statProj==='all'?'on':''}" onclick="statProj='all';renderStats()">全部</button>`
+      +db.projects.map(p=>`<button class="chip ${statProj===p.id?'on':''}" onclick="statProj='${p.id}';renderStats()">${esc(p.name)}</button>`).join('')
+      +`<button class="chip ${statProj==='none'?'on':''}" onclick="statProj='none';renderStats()">無專案</button></div>`;
+  }
+  if(statType==='out'&&statProj==='all')h+=`<div class="card">${budgetHTML(total)}</div>`;
+  h+=`<div class="card"><h2>分類佔比</h2>`;
+  if(!items.length)h+=`<div class="empty">${art()}<b>這個月沒有${statType==='out'?'支出':'收入'}紀錄</b></div>`;
+  else h+=`<div class="donut-wrap">${donut(items,total)}</div>`+items.map((it,i)=>`<div class="li"><span class="sw" style="background:${PALETTE[i%PALETTE.length]}"></span>
+      <span class="nm">${esc(it.k)}</span><span class="num">${money(it.v)}</span><span class="pc num">${(it.v/total*100).toFixed(1)}%</span></div>`).join('');
+  h+=`</div>`;
+  if(db.projects.length){
+    h+=`<div class="card"><h2>專案累計支出（全部期間）</h2>`+db.projects.map(p=>{
+      const s=db.txs.filter(t=>t.type==='out'&&t.projectId===p.id).reduce((a,t)=>a+t.amount,0);
+      return `<div class="li"><span class="nm">${esc(p.name)}</span><span class="num">${money(s)}</span></div>`}).join('')+`</div>`;
+  }
+  $('#v-stats').innerHTML=h;
+}
+
+/* ================= 帳戶 ================= */
+function renderAccts(){
+  const inc=db.accounts.filter(a=>!a.excluded),exc=db.accounts.length-inc.length;
+  const asset=inc.reduce((s,a)=>s+Math.max(0,balance(a)),0),debt=inc.reduce((s,a)=>s+Math.min(0,balance(a)),0);
+  let h=`<div class="card"><div class="sub">淨資產（不含未入帳）</div><div class="big num">${money(asset+debt)}</div>
+    <div class="subrow num"><span>資產 <b class="c-in">${money(asset)}</b></span><span>負債 <b class="c-out">${money(-debt)}</b></span></div>
+    ${exc?`<div class="sub" style="margin-top:6px">另有 ${exc} 個帳戶不計入資產負債</div>`:''}</div>`;
+  for(const type in TYPES){
+    let list=db.accounts.filter(a=>a.type===type);if(!list.length)continue;
+    if(type==='credit')list=[...list].sort((x,y)=>((+x.stmtDay||99)-(+y.stmtDay||99))||((+x.dueDay||99)-(+y.dueDay||99)));
+    h+=`<div class="section-t"><h2>${TYPES[type]}</h2>${type==='credit'?`<button class="link" onclick="openPay()">應繳試算</button>`:''}</div>`;
+    h+=list.map(a=>{let b=balance(a),fut=0;
+      if(type==='credit'){const tot=cardUse(a).bal;fut=b-tot;b=tot}
+      return `<button class="acct" onclick="${type==='credit'?`openCard('${a.id}')`:type==='loan'?`openLoanView('${a.id}')`:`openAcct('${a.id}')`}"><div class="mid"><div>${esc(a.name)}${a.excluded?'<span class="tag pend">不計入</span>':''}</div>
+        <div class="meta">${type==='loan'?loanMeta(a):type==='credit'?(a.stmtDay?(a.dueDay?`每月 ${a.stmtDay} 日結帳・${dueSame(a)?'當月':'次月'} ${a.dueDay} 日繳款`:`${a.stmtDay} 日結帳・未設最後繳款日`):'尚未設定結帳日'):'餘額'}</div></div>
+        <div style="text-align:right"><div class="amt num ${b<0?'c-out':''}">${money(b)}</div>${fut>0?`<div class="meta">含未入帳分期 ${money(fut)}</div>`:''}${type==='credit'?(()=>{const u=cardLedger(a).unpaid;const U=cardUse(a);return `<div class="meta">${u>0?'未繳 '+money(u):'無未繳'}</div>${U.limit?`<div class="meta ${U.avail<0?'c-out':U.pct>=80?'c-warn':''}">可用 ${money(U.avail)}</div>`:''}`})():''}</div></button>`}).join('');
+  }
+  h+=`<div class="acts"><button class="btn ghost" style="flex:1" onclick="openAcct()">新增帳戶</button><button class="btn ghost" style="flex:1" onclick="openLoanForm()">新增貸款</button></div>`;
+  $('#v-accts').innerHTML=h;
+}
+
+/* ================= 設定 ================= */
+function renderSet(){
+  $('#v-set').innerHTML=`
+  <div class="group">
+    <button class="set" onclick="editBudget()"><span>每月預算</span><span class="v num">${db.budget?money(db.budget):'未設定'}</span></button>
+    <button class="set" onclick="go('pay')"><span>薪資估算與金錢配置</span><span class="v">${db.salary.jobs.length} 份工作</span></button>
+    <button class="set" onclick="openRecList()"><span>週期性付款</span><span class="v">${db.recurring.length} 項</span></button>
+    <button class="set" onclick="openCardDates()"><span>信用卡結帳日／最後繳款日</span><span class="v">${cards().length} 張</span></button>
+    <button class="set" onclick="openPay()"><span>信用卡區間應繳試算</span><span class="v">›</span></button>
+  </div>
+  <div class="group">
+    <button class="set" onclick="editList('out')"><span>支出分類</span><span class="v">${db.categories.out.length} 個</span></button>
+    <button class="set" onclick="editList('in')"><span>收入分類</span><span class="v">${db.categories.in.length} 個</span></button>
+    <button class="set" onclick="editList('proj')"><span>專案</span><span class="v">${db.projects.length} 個</span></button>
+  </div>
+  <div class="group">
+    <button class="set" onclick="$('#imgIn').click()"><span>更換總覽圖片</span><span class="v">›</span></button>
+    ${hasCustomImg()?`<button class="set" onclick="resetImg()"><span>還原預設圖片</span><span class="v">›</span></button>`:''}
+  </div>
+  <div class="group">
+    <button class="set" onclick="exportJSON()"><span>匯出備份（JSON）</span><span class="v">${db.txs.length} 筆</span></button>
+    <button class="set" onclick="$('#fileIn').click()"><span>從備份匯入</span><span class="v">›</span></button>
+    <button class="set" onclick="$('#xlsIn').value='';$('#xlsIn').click()"><span>從其他記帳 App 匯入（Excel／CSV）</span><span class="v">›</span></button>
+  </div>
+  <p class="note">資料只存在這支手機的瀏覽器裡。清除瀏覽器資料或換手機前，請先匯出備份。</p>
+  <div class="group"><button class="set danger" onclick="resetAll()"><span>清除所有資料</span></button></div>`;
+}
+/* ================= 從其他記帳 App 匯入（Excel／CSV） ================= */
+let imp=null;
+function loadXLSX(){
+  if(window.XLSX)return Promise.resolve();
+  return new Promise((res,rej)=>{const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';sc.onload=res;sc.onerror=()=>rej(new Error('load'));document.head.appendChild(sc)});
+}
+const CAT_SYN={'吃喝':'餐飲','飲食':'餐飲','食物':'餐飲','美食':'餐飲','餐費':'餐飲','住房':'居家','居住':'居家','生活':'居家','日用':'居家','休閒':'娛樂','玩樂':'娛樂','醫藥':'醫療','健康':'醫療','工資':'薪資','薪水':'薪資','年終':'獎金','理財':'投資'};
+function impDate(v){
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*864e5));
+    return {date:`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`,key:v.toFixed(6)}}
+  const m=String(v||'').trim().match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);
+  return m?{date:`${m[1]}-${pad(+m[2])}-${pad(+m[3])}`,key:String(v).trim()}:null;
+}
+function impCatGuess(name,kind){
+  const list=db.categories[kind];if(!name)return list.includes('其他')?'其他':list[0];
+  if(list.includes(name))return name;
+  const syn=CAT_SYN[name];if(syn&&list.includes(syn))return syn;
+  const hit=list.find(c=>c.includes(name)||name.includes(c));return hit||'＋'+name;
+}
+function impAcctGuess(name){
+  const a=db.accounts.find(x=>x.name===name)||db.accounts.find(x=>x.type!=='loan'&&(x.name.includes(name)||name.includes(x.name)));
+  return a?a.id:'new:'+(name==='現金'?'cash':/pay|街口|支付|悠遊|一卡通/i.test(name)?'epay':'credit');
+}
+async function readImportFile(f){
+  try{toast('讀取中…');await loadXLSX()}catch(e){return toast('需要網路才能讀 Excel，請連上網路再試')}
+  let rows;
+  try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''})}
+  catch(e){return toast('這個檔案讀不出來，請確認是 Excel 或 CSV')}
+  const hi=rows.findIndex(r=>r.some(c=>/金額/.test(c))&&r.some(c=>/類型|收支|時間|日期/.test(c)));
+  if(hi<0)return toast('找不到「金額」「日期」等欄位，這個格式還不支援');
+  const H=rows[hi].map(c=>String(c).trim()),col=re=>H.findIndex(h=>re.test(h));
+  const C={type:col(/類型|收支/),time:col(/時間|日期/),acct:col(/帳戶/),amt:col(/金額/),c1:col(/一級分類|^分類$|類別|主分類/),c2:col(/二級分類|子分類|次分類/),note:col(/備註|說明|描述|項目/),fee:col(/手續費/)};
+  if(C.time<0||C.amt<0)return toast('缺少日期或金額欄位');
+  const items=[];
+  for(const r of rows.slice(hi+1)){
+    const raw=parseFloat(String(r[C.amt]).replace(/[^\d.\-]/g,''));if(!raw)continue;
+    const d=impDate(r[C.time]);if(!d)continue;
+    const tp=C.type>=0?String(r[C.type]):'';
+    const kind=/收入/.test(tp)?'in':/支出/.test(tp)?'out':raw>0?'in':'out';
+    const fee=C.fee>=0?Math.abs(parseFloat(r[C.fee])||0):0;
+    items.push({kind,date:d.date,tkey:d.key,acct:C.acct>=0?String(r[C.acct]).trim()||'現金':'現金',amount:Math.abs(raw)+fee,
+      c1:C.c1>=0?String(r[C.c1]).trim():'',c2:C.c2>=0?String(r[C.c2]).trim():'',note:C.note>=0?String(r[C.note]).trim():''});
+  }
+  if(!items.length)return toast('檔案裡沒有可以匯入的紀錄');
+  /* 還款／轉帳：同一時間、同金額，一筆支出一筆收入 → 轉帳 */
+  const used=new Set(),pairs=[];
+  items.forEach((a,i)=>{if(used.has(i)||a.kind!=='out'||!/還款|轉帳|轉賬|繳卡費|信用卡繳款/.test(a.c1+a.c2))return;
+    const j=items.findIndex((b,k)=>!used.has(k)&&k!==i&&b.kind==='in'&&b.tkey===a.tkey&&b.amount===a.amount&&b.acct!==a.acct);
+    if(j>=0){used.add(i);used.add(j);pairs.push({from:a.acct,to:items[j].acct,amount:a.amount,date:a.date,tkey:a.tkey,note:a.note||items[j].note||(a.c1||'還款')})}});
+  let singles=items.filter((_,i)=>!used.has(i));
+  const groups=findInstGroups(singles.filter(x=>x.kind==='out'));
+  const inG=new Set(groups.flatMap(g=>[g.total,...g.parts]));
+  singles=singles.filter(x=>!inG.has(x));
+  const accts=[...new Set(items.map(x=>x.acct))],cats={out:{},in:{}};
+  for(const x of singles)cats[x.kind][x.c1||'其他']=impCatGuess(x.c1,x.kind);
+  imp={singles,pairs,groups:groups.map(g=>({...g,on:true})),accts:Object.fromEntries(accts.map(a=>[a,impAcctGuess(a)])),cats,sub:true,
+    range:[items.map(x=>x.date).sort()[0],items.map(x=>x.date).sort().pop()]};
+  drawImport();
+}
+/* 分期辨識：同帳戶、同備註、同分類裡，有一筆總額 ≈ 另外 N 筆等額的加總 → 視為同一筆分 N 期 */
+function findInstGroups(list){
+  const by={},out=[];
+  for(const x of list){if(!x.note)continue;(by[x.acct+'|'+x.note+'|'+x.c1]||=[]).push(x)}
+  for(const g of Object.values(by)){
+    const cnt={};for(const x of g)(cnt[x.amount]||=[]).push(x);
+    for(const [a,parts] of Object.entries(cnt)){
+      const k=parts.length;if(k<2)continue;
+      const total=g.find(x=>x.amount>+a&&Math.abs(x.amount-a*k)<=k);
+      if(total)out.push({total,parts:parts.sort((p,q)=>p.date<q.date?-1:1)});
+    }
+  }
+  return out;
+}
+function impKey(x){return `imp|${x.tkey}|${x.acct||x.from+'>'+x.to}|${x.amount}|${x.note}`}
+function impSync(){
+  document.querySelectorAll('#sheet [data-ia]').forEach(el=>imp.accts[el.dataset.ia]=el.value);
+  document.querySelectorAll('#sheet [data-ic]').forEach(el=>{const[k,n]=el.dataset.ic.split('|');imp.cats[k][n]=el.value});
+  const sb=$('#impSub');if(sb)imp.sub=sb.checked;
+  document.querySelectorAll('#sheet [data-ig]').forEach(el=>imp.groups[+el.dataset.ig].on=el.checked);
+}
+function drawImport(){
+  const have=new Set(db.txs.map(t=>t.impKey).filter(Boolean));
+  const dupS=imp.singles.filter(x=>have.has(impKey(x))).length,dupP=imp.pairs.filter(x=>have.has(impKey(x))).length;
+  const n=imp.singles.length+imp.pairs.length-dupS-dupP,td=today();
+  const fut=imp.singles.filter(x=>x.date>td&&!have.has(impKey(x))).length;
+  const aOpt=v=>`${db.accounts.filter(a=>a.type!=='loan').map(a=>`<option value="${a.id}" ${v===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
+    ${['credit','bank','cash','epay'].map(t=>`<option value="new:${t}" ${v==='new:'+t?'selected':''}>＋ 新增為${TYPES[t]}</option>`).join('')}`;
+  const cOpt=(k,v)=>`${db.categories[k].map(c=>`<option ${v===c?'selected':''}>${esc(c)}</option>`).join('')}${v.startsWith('＋')?`<option selected>${esc(v)}</option>`:''}`;
+  const catRows=k=>Object.keys(imp.cats[k]).map(nm=>`<div class="li" style="gap:8px"><span class="nm" style="flex:1">${esc(nm)}<small>${imp.singles.filter(x=>x.kind===k&&(x.c1||'其他')===nm).length} 筆</small></span>
+    <select data-ic="${k}|${esc(nm)}" style="max-width:48%">${cOpt(k,imp.cats[k][nm])}</select></div>`).join('');
+  openSheet(`<h2>匯入其他記帳 App</h2>
+    <div class="total-box"><div class="big num">${n} 筆</div><div class="sub">${imp.range[0]} ～ ${imp.range[1]}・支出 ${imp.singles.filter(x=>x.kind==='out').length}・收入 ${imp.singles.filter(x=>x.kind==='in').length}・轉帳 ${imp.pairs.length}</div>
+      ${dupS+dupP?`<div class="sub">另有 ${dupS+dupP} 筆之前匯入過，會自動略過</div>`:''}</div>
+    ${imp.pairs.length?`<p class="hint">${imp.pairs.map(x=>`${md(x.date)} ${esc(x.from)} → ${esc(x.to)} ${money(x.amount)}`).join('、')} 是一收一支的還款，會記成「轉帳」，不算支出也不算收入。</p>`:''}
+    ${imp.groups.length?`<h3 style="margin:14px 0 6px">偵測到分期付款</h3>${imp.groups.map((g,i)=>`<label class="toggle"><input type="checkbox" data-ig="${i}" ${g.on?'checked':''}>
+      ${esc(g.total.note)}（${esc(g.total.acct)}）${money(g.total.amount)} 分 ${g.parts.length} 期，每期 ${money(g.parts[0].amount)}，${md(g.parts[0].date)} 起</label>`).join('')}
+      <p class="hint">勾選的會合併成一筆分期，不會重複計算總額。</p>`:''}
+    ${fut?`<p class="hint">有 ${fut} 筆日期在未來，匯入後會顯示「未入帳」，到期才算進餘額。</p>`:''}
+    <h3 style="margin:14px 0 6px">帳戶對應</h3>
+    ${Object.keys(imp.accts).map(a=>`<div class="li" style="gap:8px"><span class="nm" style="flex:1">${esc(a)}</span><select data-ia="${esc(a)}" style="max-width:55%">${aOpt(imp.accts[a])}</select></div>`).join('')}
+    ${Object.keys(imp.cats.out).length?`<h3 style="margin:14px 0 6px">支出分類對應</h3>${catRows('out')}`:''}
+    ${Object.keys(imp.cats.in).length?`<h3 style="margin:14px 0 6px">收入分類對應</h3>${catRows('in')}`:''}
+    <p class="hint">「＋」開頭的是新分類，匯入時會自動建立。</p>
+    <label class="toggle"><input type="checkbox" id="impSub" ${imp.sub?'checked':''}> 把原本的二級分類（例如「晚餐」「計程車」）寫進備註</label>
+    <div class="acts"><button class="btn ghost" onclick="closeSheet()">取消</button><button class="btn" onclick="doImport()" ${n?'':'disabled'}>匯入 ${n} 筆</button></div>`);
+  $('#sheet').onchange=e=>{if(e.target.matches('[data-ia],[data-ic],[data-ig],#impSub'))impSync()};
+}
+function doImport(){
+  impSync();
+  const have=new Set(db.txs.map(t=>t.impKey).filter(Boolean)),idOf={};
+  for(const [nm,v] of Object.entries(imp.accts)){
+    if(v.startsWith('new:')){const a={id:uid(),name:nm,type:v.slice(4),init:0,stmtDay:'',dueDay:''};db.accounts.push(a);idOf[nm]=a.id}
+    else idOf[nm]=v;
+  }
+  for(const k of ['out','in'])for(const nm in imp.cats[k]){let c=imp.cats[k][nm];
+    if(c.startsWith('＋')){c=c.slice(1);if(!db.categories[k].includes(c))db.categories[k].push(c);imp.cats[k][nm]=c}}
+  let n=0,ts=Date.now();
+  for(const x of imp.singles){const key=impKey(x);if(have.has(key))continue;
+    const sub=imp.sub&&x.c2&&x.c2!==x.c1&&!/^其他/.test(x.c2)?x.c2:'';
+    db.txs.push({id:uid(),ts:ts++,type:x.kind,amount:x.amount,accountId:idOf[x.acct],toAccountId:'',category:imp.cats[x.kind][x.c1||'其他'],
+      projectId:'',date:x.date,note:[sub,x.note].filter(Boolean).join(' ').trim(),impKey:key});n++}
+  for(const x of imp.pairs){const key=impKey(x);if(have.has(key))continue;
+    db.txs.push({id:uid(),ts:ts++,type:'move',amount:x.amount,accountId:idOf[x.from],toAccountId:idOf[x.to],category:'轉帳',projectId:'',date:x.date,note:x.note,impKey:key});n++}
+  for(const g of imp.groups){
+    const members=[g.total,...g.parts];
+    if(!g.on){for(const x of members){const key=impKey(x);if(have.has(key))continue;
+      if(!imp.cats.out[x.c1||'其他'])imp.cats.out[x.c1||'其他']=impCatGuess(x.c1,'out').replace(/^＋/,'');
+      db.txs.push({id:uid(),ts:ts++,type:'out',amount:x.amount,accountId:idOf[x.acct],toAccountId:'',category:imp.cats.out[x.c1||'其他'],projectId:'',date:x.date,note:x.note,impKey:key});n++}continue}
+    const gk=impKey(g.total);if(db.installments.some(p=>p.impKey===gk))continue;
+    const keys=new Set(members.map(impKey));db.txs=db.txs.filter(t=>!keys.has(t.impKey));
+    let cat=imp.cats.out[g.total.c1||'其他']||impCatGuess(g.total.c1,'out');if(cat.startsWith('＋')){cat=cat.slice(1);if(!db.categories.out.includes(cat))db.categories.out.push(cat)}
+    const pl={id:uid(),title:g.total.note,total:g.parts.reduce((s,x)=>s+x.amount,0),fee:0,n:g.parts.length,accountId:idOf[g.total.acct],category:cat,projectId:'',start:g.parts[0].date,impKey:gk};
+    db.installments.push(pl);createInstallment(pl);n++;
+  }
+  const newA=Object.values(imp.accts).filter(v=>v.startsWith('new:')).length;
+  imp=null;save();closeSheet();render();
+  toast(`已匯入 ${n} 筆${newA?`，新增 ${newA} 個帳戶`:''}`);
+}
+
+/* 公開版：不含任何個人資料 */
+function oneTimeFixes(){}
+let dlCap;
+if(window.claude&&claude.use)claude.use('downloads').then(d=>{dlCap=d}).catch(()=>{});
+async function exportJSON(){
+  const text=JSON.stringify(db,null,2),name=`記帳備份_${today()}.json`;
+  if(!dlCap&&window.claude&&claude.use)dlCap=await claude.use('downloads').catch(()=>null);
+  if(dlCap){
+    try{await dlCap.save({filename:name,data:new Blob([text],{type:'application/json'})});toast('已匯出備份')}
+    catch(e){toast(e&&e.code==='declined'?'已取消匯出':'匯出失敗，請再試一次')}
+    return;
+  }
+  const blob=new Blob([text],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('已匯出備份');
+}
+$('#fileIn').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{try{
+    const d=JSON.parse(r.result);
+    if(!Array.isArray(d.accounts)||!Array.isArray(d.txs)||!d.categories)throw 0;
+    if(!await ask(`備份內有 ${d.txs.length} 筆紀錄。匯入會取代目前所有資料，確定嗎？`))return;
+    db=d;migrate();postRecurring();postLoans();save();render();toast('已匯入備份');
+  }catch(err){toast('這不是有效的備份檔')}};
+  r.readAsText(f);e.target.value='';
+};
+function hasCustomImg(){try{return !!localStorage.getItem(IMG_KEY)}catch(e){return false}}
+$('#imgIn').onchange=e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  const img=new Image(),url=URL.createObjectURL(f);
+  img.onload=()=>{
+    const k=Math.min(1,900/img.width),cv=document.createElement('canvas');
+    cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(url);
+    try{localStorage.setItem(IMG_KEY,cv.toDataURL('image/jpeg',.85));render();toast('已更換圖片')}
+    catch(err){toast('圖片太大存不下，請換一張小一點的')}
+  };
+  img.onerror=()=>toast('無法讀取這張圖片');
+  img.src=url;
+};
+function resetImg(){try{localStorage.removeItem(IMG_KEY)}catch(e){}render();toast('已還原預設圖片')}
+async function resetAll(){
+  if(!await ask('所有帳戶與紀錄都會被刪除，且無法復原。確定清除嗎？'))return;
+  db=defaults();save();render();toast('已清除所有資料');
+}
+
+/* ================= 底部表單 ================= */
+function openSheet(html){$('#sheet').innerHTML=`<div class="grip"></div>`+html;$('#mask').classList.add('on');$('#sheet').classList.add('on')}
+function closeSheet(){$('#mask').classList.remove('on');$('#sheet').classList.remove('on')}
+const acctOpts=(sel,filter)=>db.accounts.filter(filter||(()=>true)).map(a=>`<option value="${a.id}" ${a.id===sel?'selected':''}>${esc(a.name)}</option>`).join('');
+const projOpts=sel=>`<option value="">無</option>`+db.projects.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('');
+
+/* ---------- 記一筆（含分期） ---------- */
+let draft;
+function openTx(id){
+  if(!db.accounts.length)return toast('請先到「帳戶」新增一個帳戶');
+  const t=id?db.txs.find(x=>x.id===id):null;
+  draft=t?{...t}:{type:'out',amount:'',accountId:db.accounts[0].id,toAccountId:db.accounts[1]?.id,category:db.categories.out[0],
+    projectId:'',date:today(),note:'',inst:false,pN:12,pFee:''};
+  openSheet('');drawTx();
+  if(!t)setTimeout(()=>$('#amt')?.focus(),280);
+}
+function drawTx(){
+  const d=draft,editing=!!db.txs.find(x=>x.id===d.id);
+  const cats=d.type==='move'?'':`<div class="f"><label>分類</label><div class="cats">${
+    db.categories[d.type].map((c,i)=>`<button type="button" class="${c===d.category?'on':''}" onclick="syncTx();draft.category=db.categories[draft.type][${i}];drawTx()">${esc(c)}</button>`).join('')}</div></div>`;
+  const plan=d.instId?db.installments.find(p=>p.id===d.instId):null;
+  $('#sheet').innerHTML=`<div class="grip"></div>
+    ${d.instId?`<div class="banner"><span>分期第 ${d.instNo}/${d.instN} 期${plan?'・'+esc(plan.title):''}</span><button class="link" onclick="openPlan('${d.instId}')">看整筆</button></div>`:''}
+    ${d.recId?`<div class="banner"><span>由週期性付款自動記錄</span></div>`:''}
+    <div class="seg">${['out','in','move'].map(k=>`<button data-t="${k}" class="${d.type===k?'on':''}" ${d.instId?'disabled':''} onclick="syncTx();setType('${k}')">${{out:'支出',in:'收入',move:'轉帳'}[k]}</button>`).join('')}</div>
+    <div class="amount-in"><span>$</span><input id="amt" class="num" type="number" inputmode="decimal" placeholder="0" value="${d.amount}"></div>
+    <p class="hint">${d.inst?`總金額，將分 ${d.pN||'?'} 期、每月同一天入帳`:'&nbsp;'}</p>
+    ${d.type==='move'
+      ?`<div class="two"><div class="f"><label>從</label><select id="acc">${acctOpts(d.accountId)}</select></div>
+         <div class="f"><label>到</label><select id="acc2">${acctOpts(d.toAccountId)}</select></div></div>`
+      :`<div class="f"><label>帳戶</label><select id="acc">${acctOpts(d.accountId)}</select></div>`}
+    ${cats}
+    ${d.type==='out'&&!editing?`<label class="toggle"><input type="checkbox" ${d.inst?'checked':''} onchange="syncTx();draft.inst=this.checked;drawTx()"> 分期付款</label>`:''}
+    ${d.inst?`<div class="two"><div class="f"><label>期數</label><input id="pN" type="number" inputmode="numeric" min="2" max="60" value="${d.pN}" oninput="draft.pN=this.value;document.querySelector('.hint').textContent='總金額，將分 '+(this.value||'?')+' 期、每月同一天入帳'"></div>
+      <div class="f"><label>手續費總額（選填）</label><input id="pFee" type="number" inputmode="numeric" placeholder="0" value="${d.pFee}"></div></div>`:''}
+    <div class="two">
+      <div class="f"><label>${d.inst?'首期入帳日':'日期'}</label><input id="dt" type="date" value="${d.date}"></div>
+      <div class="f"><label>專案</label><select id="pj">${projOpts(d.projectId)}</select></div>
+    </div>
+    <div class="f"><label>備註</label><input id="nt" value="${esc(d.note)}" placeholder="${d.inst?'例：新手機':'選填'}"></div>
+    <div class="acts">
+      ${editing?`<button class="btn del" onclick="delTx()">刪除</button>`:''}
+      <button class="btn ghost" onclick="closeSheet()">取消</button>
+      <button class="btn" onclick="saveTx()">儲存</button>
+    </div>`;
+}
+function syncTx(){
+  const g=id=>document.getElementById(id);
+  if(g('amt'))draft.amount=g('amt').value;
+  if(g('acc'))draft.accountId=g('acc').value;
+  if(g('acc2'))draft.toAccountId=g('acc2').value;
+  if(g('dt'))draft.date=g('dt').value;
+  if(g('pj'))draft.projectId=g('pj').value;
+  if(g('nt'))draft.note=g('nt').value;
+  if(g('pN'))draft.pN=g('pN').value;
+  if(g('pFee'))draft.pFee=g('pFee').value;
+}
+function setType(k){
+  draft.type=k;if(k!=='out')draft.inst=false;
+  if(k!=='move'&&!db.categories[k].includes(draft.category))draft.category=db.categories[k][0];
+  if(k==='move'&&draft.toAccountId===draft.accountId)draft.toAccountId=db.accounts.find(a=>a.id!==draft.accountId)?.id;
+  drawTx();
+}
+async function saveTx(){
+  syncTx();
+  const amount=Math.round(parseFloat(draft.amount)*100)/100;
+  if(!(amount>0))return toast('請輸入大於 0 的金額');
+  if(!draft.date)return toast('請選擇日期');
+  if(draft.type==='move'&&draft.accountId===draft.toAccountId)return toast('轉出和轉入帳戶不能相同');
+
+  const cc=acct(draft.accountId);
+  if(draft.type==='out'&&cc&&cc.type==='credit'&&cc.limit){
+    const orig0=db.txs.find(x=>x.id===draft.id),add=draft.inst?Math.round(amount+(parseFloat(draft.pFee)||0)):amount-(orig0&&orig0.accountId===cc.id?orig0.amount:0);
+    const U=cardUse(cc,add);
+    if(U.avail<0&&!await ask(`${cc.name} 額度不夠：記完這筆會超過額度 ${money(-U.avail)}。\n（額度 ${money(U.limit)}，已用 ${money(U.used-add)}）\n\n還是要記嗎？`,'照樣記','取消'))return;
+  }
+  if(draft.inst){
+    const n=parseInt(draft.pN);
+    if(!(n>=2&&n<=60))return toast('期數請填 2 到 60');
+    const p={id:uid(),title:draft.note.trim()||draft.category,total:Math.round(amount),fee:Math.round(parseFloat(draft.pFee)||0),n,
+      accountId:draft.accountId,category:draft.category,projectId:draft.projectId,start:draft.date};
+    db.installments.push(p);createInstallment(p);
+    save();closeSheet();render();return toast(`已建立 ${n} 期分期`);
+  }
+  const orig=db.txs.find(x=>x.id===draft.id);
+  const t=Object.assign({},orig||{id:uid(),ts:Date.now()},{type:draft.type,amount,accountId:draft.accountId,
+    toAccountId:draft.type==='move'?draft.toAccountId:'',category:draft.type==='move'?'轉帳':draft.category,
+    projectId:draft.projectId,date:draft.date,note:draft.note.trim()});
+  if(orig)db.txs[db.txs.indexOf(orig)]=t;else db.txs.push(t);
+  save();closeSheet();render();toast(orig?'已更新':'已記錄');
+}
+async function delTx(){
+  if(!await ask(draft.instId?'只刪除這一期？（要刪整筆請按「看整筆」）':'刪除這筆紀錄？'))return;
+  db.txs=db.txs.filter(x=>x.id!==draft.id);save();closeSheet();render();toast('已刪除');
+}
+
+/* ---------- 分期 ---------- */
+function createInstallment(p){
+  const per=Math.floor(p.total/p.n),rem=p.total-per*p.n;
+  const fper=Math.floor(p.fee/p.n),frem=p.fee-fper*p.n;
+  const s=pd(p.start);
+  for(let k=0;k<p.n;k++){
+    db.txs.push({id:uid(),ts:Date.now()+k,type:'out',amount:per+fper+(k===0?rem+frem:0),accountId:p.accountId,toAccountId:'',
+      category:p.category,projectId:p.projectId||'',date:ds(mkDate(s.getFullYear(),s.getMonth()+k,s.getDate())),
+      note:p.title,instId:p.id,instNo:k+1,instN:p.n});
+  }
+}
+function openPlan(id){
+  const p=db.installments.find(x=>x.id===id);if(!p)return toast('找不到這筆分期');
+  const ch=db.txs.filter(t=>t.instId===id).sort((a,b)=>a.instNo-b.instNo),td=today();
+  const done=ch.filter(t=>t.date<=td);
+  openSheet(`<h2>${esc(p.title)}</h2>
+    <div class="total-box"><div class="sub">總額 ${money(p.total)}${p.fee?`＋手續費 ${money(p.fee)}`:''}・${esc(acctName(p.accountId))}</div>
+      <div class="big num">${money(ch.filter(t=>t.date>td).reduce((s,t)=>s+t.amount,0))}</div><div class="sub">尚未入帳（已入帳 ${done.length}/${ch.length} 期）</div></div>
+    <div class="brk">${ch.map(t=>`<div class="li"><span class="nm">第 ${t.instNo} 期<small>${t.date}</small></span>
+      ${t.date>td?'<span class="tag pend">未入帳</span>':''}<span class="num">${money(t.amount)}</span></div>`).join('')}</div>
+    <div class="acts"><button class="btn del" onclick="delPlan('${id}')">刪除整筆分期</button><button class="btn" onclick="closeSheet()">完成</button></div>`);
+}
+async function delPlan(id){
+  if(!await ask('刪除這筆分期和它的每一期紀錄？'))return;
+  db.installments=db.installments.filter(p=>p.id!==id);db.txs=db.txs.filter(t=>t.instId!==id);
+  save();closeSheet();render();toast('已刪除分期');
+}
+
+/* ---------- 信用卡區間應繳 ---------- */
+let pay;
+function openPay(cardId){
+  const cs=cards();if(!cs.length)return toast('先到「帳戶」新增一張信用卡');
+  const c=cs.find(x=>x.id===cardId)||cs[0],oc=openCycle(c),pc=cycle(c,oc.y,oc.m-1);
+  pay={cardId:c.id,mode:'cycle',y:pc.y,m:pc.m,from:pc.start,to:pc.end};
+  openSheet('');drawPay();
+}
+function drawPay(){
+  const c=acct(pay.cardId);
+  let from,to,info='';
+  if(pay.mode==='cycle'){
+    const cy=cycle(c,pay.y,pay.m);from=cy.start;to=cy.end;
+    info=`${cy.y}/${cy.m+1} 帳單・${md(from)}–${md(to)}${cy.due?`・${md(cy.due)} 前繳`:''}`;
+  }else{from=pay.from;to=pay.to}
+  const valid=from&&to&&from<=to;
+  const r=valid?payable(c,from,to):null;
+  const kindName={normal:'一般',inst:'分期',rec:'週期',recF:'預計扣款',refund:'退款'};
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>信用卡應繳試算</h2>
+    <div class="f"><select id="pc" onchange="pay.cardId=this.value;drawPay()">${acctOpts(pay.cardId,a=>a.type==='credit')}</select></div>
+    <div class="seg"><button class="${pay.mode==='cycle'?'on':''}" onclick="pay.mode='cycle';drawPay()">帳單週期</button>
+      <button class="${pay.mode==='range'?'on':''}" onclick="pay.mode='range';drawPay()">自訂區間</button></div>
+    ${pay.mode==='cycle'
+      ?`<div class="month" style="justify-content:center;margin-bottom:6px"><button aria-label="上一期" onclick="pay.m--;drawPay()">‹</button>
+         <span style="min-width:0;padding:0 6px">${info}</span><button aria-label="下一期" onclick="pay.m++;drawPay()">›</button></div>
+         ${c.stmtDay?'':`<p class="hint" style="text-align:center">這張卡還沒設定結帳日，暫以自然月計算。可到「帳戶」設定。</p>`}`
+      :`<div class="two"><div class="f"><label>開始</label><input type="date" value="${pay.from}" onchange="pay.from=this.value;drawPay()"></div>
+         <div class="f"><label>結束</label><input type="date" value="${pay.to}" onchange="pay.to=this.value;drawPay()"></div></div>`}
+    ${!valid?`<p class="hint">開始日期要早於結束日期</p>`:`
+    <div class="total-box"><div class="sub">區間應繳金額</div><div class="big num">${money(r.total)}</div>
+      ${r.paid?`<div class="sub">區間內已還款 ${money(r.paid)}</div>`:''}</div>
+    <div class="brk">
+      ${[['一般消費',r.normal],['分期（本區間）',r.inst],['週期性付款（已入帳）',r.rec],['週期性付款（預計）',r.recF],['退款',r.refund]]
+        .filter(x=>x[1]).map(([n,v])=>`<div class="li"><span class="nm">${n}</span><span class="num">${money(v)}</span></div>`).join('')||'<div class="sub">這段期間沒有刷卡紀錄</div>'}
+    </div>
+    ${r.items.length?`<h2 style="margin-top:16px;font-size:15px">明細</h2><div class="brk">${r.items.map(i=>`<div class="li"><span class="nm">${esc(i.name)}
+      <small>${md(i.date)}・${i.label||kindName[i.kind]}${i.pending&&i.kind!=='recF'?'・未入帳':''}</small></span>
+      <span class="num ${i.amount<0?'c-in':''}">${money(i.amount)}</span></div>`).join('')}</div>`:''}`}
+    <div class="acts"><button class="btn" onclick="closeSheet()">完成</button></div>`;
+}
+
+/* ---------- 信用卡帳單／對帳／繳款 ---------- */
+let cardSel;
+function openCard(id){
+  const cs=cards();if(!cs.length)return toast('先到「帳戶」新增一張信用卡');
+  cardSel=(cs.find(c=>c.id===id)||cs[0]).id;openSheet('');drawCard();
+}
+function drawCard(){
+  const c=acct(cardSel),L=cardLedger(c),O=L.open;
+  const list=[...L.stmts].reverse();
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>信用卡帳單</h2>
+    <div class="f"><select onchange="cardSel=this.value;drawCard()">${acctOpts(cardSel,a=>a.type==='credit')}</select></div>
+    <div class="total-box"><div class="sub">已結帳未繳總額</div><div class="big num ${L.unpaid>0?'c-out':''}">${money(L.unpaid)}</div>
+      ${L.credit>0?`<div class="sub">溢繳／預繳 ${money(L.credit)}，會抵下一期</div>`:''}
+      ${c.limit?`<div style="text-align:left">${limitBar(c)}</div>`:`<div class="sub" style="margin-top:6px"><button class="link" onclick="openAcct('${c.id}')">設定信用額度</button></div>`}
+      <div class="acts" style="justify-content:center"><button class="btn" style="flex:0 0 auto;padding:10px 26px" onclick="openPayForm('${c.id}',${L.target?L.target.remain:0})">繳款</button>
+        <button class="btn ghost" onclick="openAcct('${c.id}')">卡片設定</button></div></div>
+    <div class="stmt"><div class="top" style="display:flex;justify-content:space-between"><b>本期累計中</b><span class="num">${money(O.calc)}</span></div>
+      <div class="meta">${md(O.start)}–${md(O.end)} ・ ${md(O.end)} 結帳${O.due?`・${md(O.due)} 前繳`:''}${O.reconciled?'・已對帳':''}</div>
+      <div class="acts"><button class="btn ghost" style="flex:1" onclick="openRecon('${c.id}','${O.end}')">先對帳</button></div></div>
+    ${list.length?list.map(x=>x.opening?`<div class="stmt"><div style="display:flex;justify-content:space-between"><b>期初欠款</b><span class="num">${money(x.amount)}</span></div>
+        <div class="meta">已繳 ${money(x.paid)}・未繳 ${money(x.remain)} ${stTag(x.status)}</div></div>`
+      :`<div class="stmt"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${x.y}/${x.m+1} 帳單</b><span class="num" style="font-weight:700">${money(x.amount)}</span></div>
+        <div class="meta">${md(x.start)}–${md(x.end)}${x.due?`・${md(x.due)} 前繳`:''} ${stTag(x.status)}${x.reconciled?'<span class="tag ok">已對帳</span>':'<span class="tag">未對帳</span>'}</div>
+        <div class="meta">已繳 ${money(x.paid)}・未繳 <b class="${x.remain>0?'c-out':''}">${money(x.remain)}</b>${x.bank!=null&&x.bank!==x.calc?`・App 計算 ${money(x.calc)}`:''}</div>
+        <div class="acts"><button class="btn ghost" style="flex:1" onclick="openRecon('${c.id}','${x.end}')">對帳</button>
+          ${x.remain>0?`<button class="btn" onclick="openPayForm('${c.id}',${x.remain})">繳這期</button>`:''}</div></div>`).join('')
+      :`<p class="hint">還沒有已結帳的帳單。</p>`}
+    <p class="hint">分次繳款會先抵最舊的帳單。</p>
+    <div class="acts"><button class="btn" onclick="closeSheet()">完成</button></div>`;
+}
+function openPayForm(cardId,amt){
+  const c=acct(cardId),src=db.accounts.filter(a=>a.type!=='credit');
+  if(!src.length)return toast('先新增一個用來繳款的銀行或現金帳戶');
+  const L=cardLedger(c);
+  openSheet(`<h2>繳 ${esc(c.name)} 卡費</h2>
+    <div class="amount-in"><span>$</span><input id="pa" class="num" type="number" inputmode="decimal" value="${amt>0?amt:''}" placeholder="0"></div>
+    <p class="hint">未繳總額 ${money(L.unpaid)}。可以只繳一部分，剩下的會繼續追蹤。</p>
+    <div class="two"><div class="f"><label>從哪個帳戶付</label><select id="pfrom">${acctOpts((src.find(a=>a.type==='bank')||src[0]).id,a=>a.type!=='credit')}</select></div>
+      <div class="f"><label>繳款日</label><input id="pdt" type="date" value="${today()}"></div></div>
+    <div class="acts"><button class="btn ghost" onclick="openCard('${cardId}')">返回</button><button class="btn" onclick="savePayment('${cardId}')">記錄繳款</button></div>`);
+}
+function savePayment(cardId){
+  const amount=Math.round(parseFloat($('#pa').value)*100)/100;
+  if(!(amount>0))return toast('請輸入大於 0 的金額');
+  db.txs.push({id:uid(),ts:Date.now(),type:'move',amount,accountId:$('#pfrom').value,toAccountId:cardId,category:'轉帳',
+    projectId:'',date:$('#pdt').value||today(),note:'繳卡費'});
+  save();render();openCard(cardId);toast('已記錄繳款');
+}
+let recon;
+function openRecon(cardId,end){const d=pd(end),c=acct(cardId);recon={c,cy:cycle(c,d.getFullYear(),d.getMonth())};openSheet('');drawRecon()}
+function drawRecon(){
+  const {c,cy}=recon,r=payable(c,cy.start,cy.end),k=skey(c,cy.end),st=db.stmts[k]||{};
+  const real=r.items.filter(i=>i.id),proj=r.items.filter(i=>!i.id);
+  const calc=real.reduce((s,i)=>s+i.amount,0),chk=real.filter(i=>i.checked);
+  const bank=st.bank!=null&&st.bank!==''?+st.bank:null;
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>對帳：${esc(c.name)} ${cy.y}/${cy.m+1} 帳單</h2>
+    <p class="hint">${md(cy.start)}–${md(cy.end)}${cy.due?`・${md(cy.due)} 前繳`:''}。拿銀行帳單逐筆打勾；銀行下期才入帳的，按「延到下期」。</p>
+    <div class="f"><label>銀行帳單金額</label><input id="bk" class="num" type="number" inputmode="decimal" value="${bank??''}" placeholder="${Math.round(calc)}" oninput="reconDiff(${calc})"></div>
+    <div class="total-box" style="padding:10px"><div class="row"><span>App 計算</span><b class="num">${money(calc)}</b></div>
+      <div class="row"><span>已勾選 ${chk.length}/${real.length} 筆</span><b class="num">${money(chk.reduce((s,i)=>s+i.amount,0))}</b></div>
+      <div class="row"><span>差額（銀行 − App）</span><b class="num" id="df"></b></div></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:4px"><button class="link" onclick="reconAll(${real.every(i=>i.checked)?'false':'true'})">${real.length&&real.every(i=>i.checked)?'全部取消':'全選'}</button></div>
+    <div>${real.map(i=>`<div class="li"><input type="checkbox" class="ck" ${i.checked?'checked':''} onchange="reconCheck('${i.id}',this.checked)" aria-label="已核對">
+      <span class="nm">${esc(i.name)}<small>${md(i.orig)}${i.deferred?` 消費・${md(i.date)} 入帳`:''}${i.label?'・'+i.label:''}${i.deferred?'<span class="tag">延後入帳</span>':''}</small></span>
+      <span class="num ${i.amount<0?'c-in':''}">${money(i.amount)}</span>
+      ${i.deferred&&i.orig>=cy.start?'':i.deferred?`<button class="sbtn" onclick="reconDefer('${i.id}',false)">移回</button>`:''}
+      <button class="sbtn" onclick="reconDefer('${i.id}',true)">延到下期</button></div>`).join('')||'<p class="hint">這期沒有刷卡紀錄。</p>'}</div>
+    ${proj.length?`<p class="hint" style="margin-top:10px">還沒扣款的週期性付款（不列入對帳）：${proj.map(i=>`${esc(i.name)} ${md(i.date)} ${money(i.amount)}`).join('、')}</p>`:''}
+    <div class="acts">${st.reconciled?`<button class="btn ghost" onclick="reconDone(false)">取消對帳</button>`:''}
+      <button class="btn ghost" onclick="openCard('${c.id}')">返回</button><button class="btn" onclick="reconDone(true)">完成對帳</button></div>`;
+  reconDiff(calc);
+}
+function reconDiff(calc){
+  const v=$('#bk').value,el=$('#df');if(!el)return;
+  if(v===''){el.textContent='尚未輸入';el.style.color='var(--dim)';return}
+  const d=Math.round((parseFloat(v)-calc)*100)/100;
+  el.textContent=d===0?'相符':(d>0?'+':'')+money(d);el.style.color=d===0?'var(--in)':'var(--out)';
+}
+function reconKeepBank(){const k=skey(recon.c,recon.cy.end),v=$('#bk')?.value;db.stmts[k]={...(db.stmts[k]||{}),bank:v===''?null:parseFloat(v)}}
+function reconCheck(id,v){reconKeepBank();const t=db.txs.find(x=>x.id===id);if(t)t.checked=v;save();drawRecon()}
+function reconAll(v){reconKeepBank();payable(recon.c,recon.cy.start,recon.cy.end).items.forEach(i=>{if(i.id){const t=db.txs.find(x=>x.id===i.id);if(t)t.checked=v}});save();drawRecon()}
+function reconDefer(id,fwd){
+  reconKeepBank();const t=db.txs.find(x=>x.id===id);if(!t)return;
+  if(fwd){t.postDate=addDays(recon.cy.end,1);t.checked=false;toast('已延到下期入帳')}
+  else{delete t.postDate;toast('已移回原消費日')}
+  save();render();drawRecon();
+}
+async function reconDone(v){
+  reconKeepBank();const k=skey(recon.c,recon.cy.end);db.stmts[k].reconciled=v;
+  const s=db.stmts[k],calc=payable(recon.c,recon.cy.start,recon.cy.end).items.filter(i=>i.id).reduce((a,i)=>a+i.amount,0);
+  if(v&&s.bank!=null&&Math.round(s.bank-calc)!==0&&!await ask(`銀行金額和 App 計算差 ${money(s.bank-calc)}。仍要以銀行金額為準完成對帳嗎？`))return;
+  save();render();openCard(recon.c.id);toast(v?'已完成對帳':'已取消對帳');
+}
+
+/* ---------- App 內確認視窗（有些瀏覽器／預覽環境會擋掉原生 confirm）---------- */
+function ask(msg,ok='確定',cancel='取消'){
+  return new Promise(res=>{
+    const w=document.createElement('div');w.className='askbg';
+    const danger=/刪除|清除|取代/.test(msg)&&ok==='確定';
+    w.innerHTML=`<div class="askbox"><div class="askmsg"></div><div class="acts"><button class="btn ghost" data-v="0"></button><button class="btn${danger?' warn':''}" data-v="1"></button></div></div>`;
+    w.querySelector('.askmsg').textContent=msg;
+    const [b0,b1]=w.querySelectorAll('button');b0.textContent=cancel;b1.textContent=danger?(msg.includes('刪除')?'刪除':ok):ok;
+    const done=v=>{w.remove();res(v)};
+    b0.onclick=()=>done(false);b1.onclick=()=>done(true);w.onclick=e=>{if(e.target===w)done(false)};
+    document.body.appendChild(w);requestAnimationFrame(()=>w.classList.add('on'));
+  });
+}
+
+/* ---------- 貸款 ---------- */
+const lpDate=(a,i)=>{const f=pd(a.loan.first);return ds(mkDate(f.getFullYear(),f.getMonth()+i-1,f.getDate()))};
+function lBal(a,before){
+  const since=a.loan.setAt||0;
+  const paid=db.txs.filter(t=>t.type==='move'&&t.toAccountId===a.id&&(t.loanNo||(t.ts||0)>since)&&(before==null||t.date<before)).reduce((s,t)=>s+t.amount,0);
+  return Math.max(0,Math.round((a.loan.principal-paid)*100)/100);
+}
+const lNextNo=a=>db.txs.filter(t=>t.loanId===a.id&&t.loanNo).reduce((m,t)=>Math.max(m,t.loanNo),0)+1;
+function lCalc(a,i,B){
+  const L=a.loan,r=(+L.rate||0)/100/12,n=L.months-i+1,interest=Math.round(B*r);
+  let prin;
+  if(i<=(+L.grace||0))prin=0;
+  else if(n<=1)prin=B;
+  else if(L.method==='equal')prin=Math.round(B/(n));
+  else{const pay=(+L.fixPay>0)?+L.fixPay:(r?B*r/(1-Math.pow(1+r,-n)):B/n);prin=Math.round(pay-interest)}
+  prin=Math.min(Math.max(prin,0),B);
+  return {i,date:lpDate(a,i),interest,prin,pay:prin+interest,bal:B-prin};
+}
+function lSchedule(a){
+  const out=[];let B=lBal(a);
+  for(let i=lNextNo(a);i<=a.loan.months&&B>0.5;i++){const x=lCalc(a,i,B);out.push(x);B=x.bal}
+  return out;
+}
+function loanMeta(a){const nx=lSchedule(a)[0];return nx?`下次 ${md(nx.date)} 扣 ${money(nx.pay)}・剩 ${a.loan.months-nx.i+1} 期`:'已還清'}
+function postLoanPeriod(a,i,prin,interest,date,from){
+  if(!db.categories.out.includes('貸款利息'))db.categories.out.push('貸款利息');
+  if(prin>0)db.txs.push({id:uid(),ts:Date.now(),type:'move',amount:prin,accountId:from,toAccountId:a.id,category:'轉帳',projectId:'',date,note:`${a.name} 第 ${i} 期本金`,loanId:a.id,loanNo:i});
+  db.txs.push({id:uid(),ts:Date.now()+1,type:'out',amount:interest,accountId:from,toAccountId:'',category:'貸款利息',projectId:'',date,note:`${a.name} 第 ${i} 期利息`,loanId:a.id,loanNo:i});
+}
+function postLoans(){
+  const td=today();let n=0;
+  for(const a of loans()){
+    if(!a.loan.auto||!acct(a.loan.payFrom))continue;
+    for(let i=lNextNo(a);i<=a.loan.months;i++){
+      const d=lpDate(a,i);if(d>td)break;
+      const B=lBal(a,d);if(B<=0.5)break;
+      const x=lCalc(a,i,B);postLoanPeriod(a,i,x.prin,x.interest,d,a.loan.payFrom);n++;
+    }
+  }
+  if(n)save();return n;
+}
+let loanAll=false;
+function openLoanView(id){loanAll=false;openSheet('');drawLoan(id)}
+function drawLoan(id){
+  const a=acct(id),L=a.loan,sch=lSchedule(a),done=lNextNo(a)-1,nx=sch[0];
+  const totalInt=sch.reduce((s,x)=>s+x.interest,0);
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>${esc(a.name)}</h2>
+    <div class="total-box"><div class="sub">剩餘本金</div><div class="big num">${money(lBal(a))}</div>
+      <div class="sub">年利率 ${L.rate}%・${L.method==='equal'?'本金平均攤還':'本息平均攤還'}${+L.grace?`・寬限 ${L.grace} 期`:''}</div>
+      <div class="sub">已繳 ${done}/${L.months} 期・預估剩餘利息 ${money(totalInt)}</div>
+      <div class="mini" style="margin:8px 20px 0"><i style="width:${Math.min(100,done/L.months*100)}%"></i></div></div>
+    ${nx?`<div class="stmt"><div style="display:flex;justify-content:space-between"><b>下一期（第 ${nx.i} 期）</b><b class="num">${money(nx.pay)}</b></div>
+      <div class="meta">${nx.date} 從 ${esc(acctName(L.payFrom))} 扣款・本金 ${money(nx.prin)}＋利息 ${money(nx.interest)}</div>
+      <div class="meta">${L.auto?'到期會自動記帳':'需手動記錄還款'}</div></div>`:'<p class="hint">這筆貸款已全部還清。</p>'}
+    <div class="acts" style="margin-top:4px">${nx?`<button class="btn ghost" style="flex:1" onclick="openLoanPay('${id}')">記錄本期還款</button>`:''}
+      <button class="btn ghost" style="flex:1" onclick="openLoanPrepay('${id}')">提前還款</button></div>
+    ${sch.length?`<h2 style="font-size:15px;margin-top:18px">還款計畫</h2><div class="brk">
+      ${(loanAll?sch:sch.slice(0,12)).map(x=>`<div class="li"><span class="nm">第 ${x.i} 期<small>${x.date}・本金 ${money(x.prin)}・利息 ${money(x.interest)}</small></span>
+        <span class="num" style="text-align:right">${money(x.pay)}<small style="display:block;color:var(--dim);font-size:12px">餘 ${money(x.bal)}</small></span></div>`).join('')}</div>
+      ${!loanAll&&sch.length>12?`<button class="link" onclick="loanAll=true;drawLoan('${id}')">顯示全部 ${sch.length} 期</button>`:''}
+      <p class="hint">依目前剩餘本金和利率推算；改利率或提前還款後會自動重算。</p>`:''}
+    <div class="acts"><button class="btn ghost" onclick="openLoanForm('${id}')">編輯</button><button class="btn" onclick="closeSheet()">完成</button></div>`;
+}
+let ldraft;
+function openLoanForm(id){
+  const src=db.accounts.filter(a=>a.type!=='credit'&&a.type!=='loan');
+  if(!src.length)return toast('先新增一個用來扣款的銀行帳戶');
+  const a=id?acct(id):null;
+  ldraft=a?{id,name:a.name,excluded:!!a.excluded,...a.loan}:{name:'',principal:'',rate:'',months:'',first:'',method:'annuity',grace:0,payFrom:(src.find(x=>x.type==='bank')||src[0]).id,auto:true};
+  const L=ldraft,started=a&&lNextNo(a)>1;
+  openSheet(`<h2>${id?'編輯貸款':'新增貸款'}</h2>
+    <div class="f"><label>名稱</label><input id="ln" value="${esc(L.name)}" placeholder="例：房貸、信貸"></div>
+    <div class="two"><div class="f"><label>${started?'起算時剩餘本金':'目前剩餘本金'}</label><input id="lp" type="number" inputmode="decimal" value="${L.principal}" placeholder="新貸款填貸款金額"></div>
+      <div class="f"><label>年利率（%）</label><input id="lr" type="number" inputmode="decimal" step="0.001" value="${L.rate}" placeholder="例：2.185"></div></div>
+    <div class="two"><div class="f"><label>${started?'起算時剩餘期數（月）':'剩餘期數（月）'}</label><input id="lm" type="number" inputmode="numeric" value="${L.months}" placeholder="例：240"></div>
+      <div class="f"><label>${started?'起算的第一期扣款日':'下一期扣款日'}</label><input id="lf" type="date" value="${L.first}"></div></div>
+    <div class="two"><div class="f"><label>還款方式</label><select id="lmt"><option value="annuity" ${L.method!=='equal'?'selected':''}>本息平均攤還</option><option value="equal" ${L.method==='equal'?'selected':''}>本金平均攤還</option></select></div>
+      <div class="f"><label>寬限期（只繳利息的期數）</label><input id="lg" type="number" inputmode="numeric" value="${L.grace||0}"></div></div>
+    <div class="f"><label>每期固定繳款金額（選填）</label><input id="lfix" type="number" inputmode="decimal" value="${L.fixPay||''}" placeholder="照銀行每月實際扣的金額填，最後一期會自動結清"></div>
+    <div id="lprev" class="hint" style="margin:-4px 0 10px"></div>
+    <details class="lconv" style="margin:0 0 12px"><summary style="color:var(--caramel);font-weight:700;cursor:pointer">不知道剩餘本金？幫我換算</summary>
+      <p class="hint" style="margin-top:8px">方法一：用當初借款的資料推算</p>
+      <div class="two"><div class="f"><label>原始貸款金額</label><input id="cv0" type="number" inputmode="decimal"></div>
+        <div class="f"><label>總期數</label><input id="cv1" type="number" inputmode="numeric" placeholder="例：60"></div></div>
+      <div class="f"><label>已經繳了幾期</label><input id="cv2" type="number" inputmode="numeric" placeholder="例：10"></div>
+      <button class="btn ghost" style="width:100%" onclick="loanConv(1)">算出剩餘本金並帶入</button>
+      <p class="hint" style="margin-top:12px">方法二：用每月繳款金額反推（本息平均攤還）</p>
+      <div class="two"><div class="f"><label>每月繳款金額</label><input id="cv3" type="number" inputmode="decimal"></div>
+        <div class="f"><label>剩餘期數</label><input id="cv4" type="number" inputmode="numeric" placeholder="例：50"></div></div>
+      <button class="btn ghost" style="width:100%" onclick="loanConv(2)">算出剩餘本金並帶入</button>
+      <p class="hint" style="margin-top:8px">兩種都要先在上面填好年利率。</p>
+    </details>
+    <div class="f"><label>扣款帳戶</label><select id="lfrom">${acctOpts(L.payFrom,x=>x.type!=='credit'&&x.type!=='loan')}</select></div>
+    <label class="toggle"><input type="checkbox" id="lauto" ${L.auto?'checked':''}> 扣款日自動記帳（本金記為轉帳、利息記為支出）</label>
+    <label class="toggle" style="margin-top:-4px"><input type="checkbox" id="lex" ${L.excluded?'checked':''}> 不計入資產負債</label>
+    <p class="hint">${started?'已經有還款紀錄，改利率會從下一期開始套用。':'已經在繳的貸款，填「現在」剩多少本金和期數即可，不用從頭補記。'}</p>
+    <div class="acts">${id?`<button class="btn del" onclick="delLoan('${id}')">刪除</button>`:''}
+      <button class="btn ghost" onclick="${id?`openLoanView('${id}')`:'closeSheet()'}">取消</button><button class="btn" onclick="saveLoan()">儲存</button></div>`);
+  ['lp','lr','lm','lmt','lg','lfix'].forEach(k=>{const e=document.getElementById(k);e.oninput=e.onchange=loanPrev});loanPrev();
+}
+function loanPrev(){
+  const g=k=>document.getElementById(k),el=g('lprev');if(!el)return;
+  const B=parseFloat(g('lp').value),rt=parseFloat(g('lr').value),n=parseInt(g('lm').value),fix=parseFloat(g('lfix').value),gr=parseInt(g('lg').value)||0;
+  if(!(B>0)||!(rt>=0)||!(n>=1)){el.innerHTML='填好剩餘本金、利率、期數，這裡會顯示每期大約扣多少，可以跟銀行實際扣款對照。';return}
+  const r=rt/100/12,m=n-gr;
+  if(g('lmt').value==='equal'){el.innerHTML=`第一期約 <b>${money(Math.round(B/m+B*r))}</b>，之後每期遞減`;return}
+  const calc=m<1?B:(r?B*r/(1-Math.pow(1+r,-m)):B/m);
+  let t=`依這些資料，每期約 <b>${money(Math.round(calc))}</b>`;
+  if(fix>0){
+    if(fix<=B*r+0.5)t+=`<br><span style="color:var(--red,#d9534f)">固定金額 ${money(fix)} 連利息都不夠付，請檢查</span>`;
+    else{const k=Math.ceil((r?-Math.log(1-B*r/fix)/Math.log(1+r):B/fix)-0.1);
+      const d=Math.round(fix-calc);
+      t+=`；你填的 ${money(fix)} ${Math.abs(d)<=Math.max(5,calc*0.003)?'✓ 吻合':`差 ${d>0?'+':''}${money(d)}`}，照這個金額約 ${k} 期還完${Math.abs(k-m)>1?`（跟剩餘 ${m} 期對不上，剩餘本金或利率可能要再確認）`:''}`}
+  }
+  el.innerHTML=t;
+}
+function loanConv(mode){
+  const g=k=>document.getElementById(k),rt=parseFloat(g('lr').value);
+  if(!(rt>=0))return toast('請先填年利率');
+  const r=rt/100/12;let B,n;
+  if(mode===1){
+    const P=parseFloat(g('cv0').value),N=parseInt(g('cv1').value),k=parseInt(g('cv2').value);
+    if(!(P>0)||!(N>=1)||!(k>=0)||k>=N)return toast('請填原始金額、總期數、已繳期數');
+    if(g('lmt').value==='equal')B=P-P/N*k;
+    else{const pay=r?P*r/(1-Math.pow(1+r,-N)):P/N;B=r?P*Math.pow(1+r,k)-pay*(Math.pow(1+r,k)-1)/r:P-pay*k;
+      if(!g('lfix').value)g('lfix').value=Math.round(pay)}
+    n=N-k;
+  }else{
+    const pay=parseFloat(g('cv3').value);n=parseInt(g('cv4').value);
+    if(!(pay>0)||!(n>=1))return toast('請填每月繳款金額與剩餘期數');
+    B=r?pay*(1-Math.pow(1+r,-n))/r:pay*n;g('lfix').value=pay;g('lmt').value='annuity';
+  }
+  g('lp').value=Math.round(B);g('lm').value=n;g('lg').value=0;loanPrev();
+  toast(`已帶入：剩餘本金 ${money(Math.round(B))}、剩餘 ${n} 期`);
+}
+async function saveLoan(){
+  const g=id=>document.getElementById(id);
+  const name=g('ln').value.trim(),principal=parseFloat(g('lp').value),rate=parseFloat(g('lr').value),months=parseInt(g('lm').value),first=g('lf').value;
+  if(!name)return toast('請輸入名稱');
+  if(!(principal>0))return toast('請輸入剩餘本金');
+  if(!(rate>=0))return toast('請輸入年利率，沒有利息填 0');
+  if(!(months>=1))return toast('請輸入剩餘期數');
+  if(!first)return toast('請選擇扣款日');
+  const grace=Math.max(0,parseInt(g('lg').value)||0);
+  if(grace>=months)return toast('寬限期要少於剩餘期數');
+  const fixPay=parseFloat(g('lfix').value)>0?parseFloat(g('lfix').value):0;
+  if(fixPay&&g('lmt').value==='annuity'&&fixPay<=principal*rate/1200)return toast('固定繳款金額比每月利息還少，請檢查');
+  const loan={principal,rate,months,first,fixPay,method:g('lmt').value,grace,payFrom:g('lfrom').value,auto:g('lauto').checked};
+  const excluded=g('lex').checked;
+  if(ldraft.id){
+    const a0=acct(ldraft.id),started=lNextNo(a0)>1;
+    loan.setAt=started?(a0.loan.setAt||0):Date.now();
+    if(!started){
+      const old=db.txs.filter(t=>t.toAccountId===ldraft.id&&t.type==='move'&&!t.loanNo);
+      if(old.length){
+        const sum=old.reduce((x,t)=>x+t.amount,0);
+        if(await ask(`這筆貸款之前有 ${old.length} 筆還款／提前還款紀錄，共 ${money(sum)}。\n\n你填的剩餘本金 ${money(principal)} 已經是現在的餘額，這些舊紀錄不會再扣一次。\n\n要把它們從明細刪掉嗎？（如果是測試用的建議刪除，銀行帳戶餘額才會正確）`))
+          db.txs=db.txs.filter(t=>!old.includes(t));
+      }
+    }
+  }else loan.setAt=Date.now();
+  if(ldraft.id){const a=acct(ldraft.id);a.name=name;a.init=-principal;a.loan=loan;a.excluded=excluded}
+  else db.accounts.push({id:uid(),name,type:'loan',init:-principal,loan,excluded});
+  const n=postLoans();save();render();
+  const id=ldraft.id||db.accounts[db.accounts.length-1].id;openLoanView(id);
+  toast(n?`已儲存，並補記 ${n} 期還款`:'已儲存貸款');
+}
+async function delLoan(id){
+  if(!await ask('刪除這筆貸款和它的所有還款紀錄？'))return;
+  db.accounts=db.accounts.filter(a=>a.id!==id);db.txs=db.txs.filter(t=>t.loanId!==id&&t.toAccountId!==id);
+  save();closeSheet();render();toast('已刪除貸款');
+}
+function openLoanPay(id){
+  const a=acct(id),x=lSchedule(a)[0];if(!x)return;
+  openSheet(`<h2>記錄第 ${x.i} 期還款</h2><p class="hint">金額和銀行實際扣款不同的話，直接改成實際數字。</p>
+    <div class="two"><div class="f"><label>本金</label><input id="pp" type="number" inputmode="decimal" value="${x.prin}"></div>
+      <div class="f"><label>利息</label><input id="pi" type="number" inputmode="decimal" value="${x.interest}"></div></div>
+    <div class="two"><div class="f"><label>扣款帳戶</label><select id="pfr">${acctOpts(a.loan.payFrom,y=>y.type!=='credit'&&y.type!=='loan')}</select></div>
+      <div class="f"><label>日期</label><input id="pd" type="date" value="${x.date}"></div></div>
+    <div class="acts"><button class="btn ghost" onclick="openLoanView('${id}')">返回</button><button class="btn" onclick="saveLoanPay('${id}',${x.i})">記錄還款</button></div>`);
+}
+function saveLoanPay(id,i){
+  const a=acct(id),prin=parseFloat($('#pp').value)||0,it=parseFloat($('#pi').value)||0;
+  if(prin<0||it<0||prin+it<=0)return toast('請輸入本金或利息');
+  postLoanPeriod(a,i,prin,it,$('#pd').value||today(),$('#pfr').value);save();render();openLoanView(id);toast(`已記錄第 ${i} 期還款`);
+}
+function openLoanPrepay(id){
+  const a=acct(id);
+  openSheet(`<h2>提前還款</h2><p class="hint">提前還的本金會讓之後每期金額重新計算（期數不變）。剩餘本金 ${money(lBal(a))}。</p>
+    <div class="amount-in"><span>$</span><input id="xa" class="num" type="number" inputmode="decimal" placeholder="0"></div>
+    <div class="two" style="margin-top:12px"><div class="f"><label>從哪個帳戶</label><select id="xf">${acctOpts(a.loan.payFrom,y=>y.type!=='credit'&&y.type!=='loan')}</select></div>
+      <div class="f"><label>日期</label><input id="xd" type="date" value="${today()}"></div></div>
+    <div class="acts"><button class="btn ghost" onclick="openLoanView('${id}')">返回</button><button class="btn" onclick="saveLoanPrepay('${id}')">記錄提前還款</button></div>`);
+}
+function saveLoanPrepay(id){
+  const a=acct(id),amt=parseFloat($('#xa').value);
+  if(!(amt>0))return toast('請輸入大於 0 的金額');
+  if(amt>lBal(a))return toast('金額超過剩餘本金');
+  db.txs.push({id:uid(),ts:Date.now(),type:'move',amount:amt,accountId:$('#xf').value,toAccountId:id,category:'轉帳',projectId:'',date:$('#xd').value||today(),note:`${a.name} 提前還款`,loanId:id});
+  save();render();openLoanView(id);toast('已記錄提前還款');
+}
+
+/* ================= 薪資估算與金錢配置 ================= */
+const LABOR=[29500,30300,31800,33300,34800,36300,38200,40100,42000,43900,45800];
+const PART_LABOR=[11100,12540,13500,15840,16500,17280,17880,19047,20008,21009,22000,23100,24000,25250,26400,27600,28590,29500];
+const HEALTH=[29500,30300,31800,33300,34800,36300,38200,40100,42000,43900,45800,48200,50600,53000,55400,57800,60800,63800,66800,69800,72800,76500,80200,83900,87600,92100,96600,101100,105600,110100,115500,120900,126300,131700,137100,142500,147900,150000,156400,162800,169200,175600,182000,189500,197000,204500,212000,219500,228200,236900,245600,254300,263000,273000,283000,293000,303000,313000];
+const MINW=29500,WH_TH=90501,SUPP=0.0211;
+const gradeUp=(list,v)=>list.find(x=>x>=v)??list[list.length-1];
+const jobs=()=>db.salary.jobs;
+const jobBase=j=>j.pay==='hourly'?Math.round((+j.hourly||0)*(+j.hoursDefault||0)):(+j.amount||0);
+function autoIns(j){
+  const b=jobBase(j),isPart=j.kind==='part';
+  const L=isPart&&!j.laborEnroll?0:isPart&&b<MINW?gradeUp(PART_LABOR,b):gradeUp(LABOR,Math.max(b,MINW));
+  const H=isPart?0:gradeUp(HEALTH,Math.max(b,MINW));
+  return {L,H,P:isPart?0:Math.min(150000,H)};
+}
+function jobIns(j){
+  const a=autoIns(j);
+  return {L:j.laborIns!==''&&j.laborIns!=null&&(j.kind==='main'||j.laborEnroll)?+j.laborIns:a.L,
+    H:j.kind==='main'&&j.healthIns!==''&&j.healthIns!=null?+j.healthIns:a.H,P:a.P};
+}
+function taxTable(m,deps){
+  const net=m*12-(101000*(1+deps)+272000+227000);if(net<=0)return 0;
+  const B=[[610000,.05,0],[1380000,.12,42700],[2770000,.2,153100],[5190000,.3,430100],[Infinity,.4,949100]];
+  const [,r,d]=B.find(b=>net<=b[0]);const x=Math.round((net*r-d)/12);return x<=2000?0:x;
+}
+const monthRec=(ym,id)=>((db.salary.months[ym]||{})[id])||{};
+function calcJob(j,ym){
+  const r=monthRec(ym,j.id),isPart=j.kind==='part';
+  const hours=r.hours!=null&&r.hours!==''?+r.hours:+j.hoursDefault||0;
+  const base=j.pay==='hourly'?Math.round((+j.hourly||0)*hours):(+j.amount||0);
+  const hr=j.pay==='hourly'?(+j.hourly||0):(+j.amount||0)/30/8;
+  const personal=j.pay==='hourly'?0:Math.round(hr*(+r.personal||0));
+  const sick=j.pay==='hourly'?0:Math.round(hr*(+r.sick||0)*0.5);
+  const extra=+r.extra||0,deduct=+r.deduct||0;
+  const gross=Math.max(0,base-personal-sick+extra);
+  const {L,H,P}=jobIns(j);
+  const labor=L?Math.round(L*0.125*0.2):0;
+  const deps=Math.min(3,+j.deps||0);
+  const health=H?Math.round(H*0.0517*0.3)*(1+deps):0;
+  const pension=isPart?0:Math.round(P*(+j.pension||0)/100);
+  const supp=isPart&&gross>=MINW?Math.round(gross*SUPP):0;
+  const taxable=gross-pension;
+  const wh=isPart?(gross>=WH_TH?Math.round(gross*0.05):0):j.withhold==='flat5'?(taxable>40020?Math.round(taxable*0.05):0):taxTable(taxable,+j.taxDeps||0);
+  const net=gross-labor-health-pension-supp-wh-deduct;
+  return {hours,base,personal,sick,extra,deduct,gross,L,H,labor,health,deps,pension,supp,wh,net};
+}
+function calcBonuses(year){
+  const out={};
+  for(const j of jobs()){
+    const list=db.salary.bonuses.filter(b=>b.jobId===j.id&&b.date.startsWith(year)).sort((a,b)=>a.date.localeCompare(b.date));
+    const th=4*jobIns(j).H;let cum=0;
+    for(const b of list){
+      const amt=+b.amount||0;let supp;
+      if(j.kind==='main'){const before=Math.max(0,cum-th);cum+=amt;supp=Math.round(Math.min(Math.max(0,cum-th)-before,1e7)*SUPP)}
+      else supp=amt>=MINW?Math.round(amt*SUPP):0;
+      const wh=amt>=WH_TH?Math.round(amt*0.05):0;
+      out[b.id]={supp,wh,net:amt-supp-wh,cum:j.kind==='main'?cum:null,th:j.kind==='main'?th:null};
+    }
+  }
+  return out;
+}
+function monthIncome(ym){
+  const J=jobs().map(j=>({j,c:calcJob(j,ym)}));
+  const bc=calcBonuses(ym.slice(0,4));
+  const B=db.salary.bonuses.filter(b=>b.date.startsWith(ym)&&acctJob(b.jobId)).map(b=>({b,c:bc[b.id]}));
+  return {J,B,salary:J.reduce((s,x)=>s+x.c.net,0),bonus:B.reduce((s,x)=>s+x.c.net,0)};
+}
+const acctJob=id=>jobs().find(j=>j.id===id);
+/* ===== 台灣國定假日（人事行政總處辦公日曆）===== */
+const TW_HOL_BUILTIN={"2026":{"h":{"0101":"開國紀念日","0215":"小年夜","0216":"農曆除夕","0217":"春節","0218":"春節","0219":"春節","0220":"補假","0227":"補假","0228":"和平紀念日","0403":"補假","0404":"兒童節","0405":"清明節","0406":"補假","0501":"勞動節","0619":"端午節","0925":"中秋節","0928":"孔子誕辰紀念日/教師節","1009":"補假","1010":"國慶日","1025":"臺灣光復暨金門古寧頭大捷紀念日","1026":"補假","1225":"行憲紀念日"},"w":[]},"2027":{"h":{"0101":"開國紀念日","0204":"小年夜","0205":"農曆除夕","0206":"春節","0207":"春節","0208":"春節","0209":"補假","0210":"補假","0228":"和平紀念日","0301":"補假","0404":"兒童節","0405":"清明節","0406":"補假","0430":"補假","0501":"勞動節","0609":"端午節","0915":"中秋節","0928":"孔子誕辰紀念日/教師節","1010":"國慶日","1011":"補假","1025":"臺灣光復暨金門古寧頭大捷紀念日","1224":"補假","1225":"行憲紀念日","1231":"補假"},"w":[]}};
+const holCache={};
+function holYear(y){
+  y=String(y);if(TW_HOL_BUILTIN[y])return TW_HOL_BUILTIN[y];
+  if(holCache[y]!==undefined)return holCache[y];
+  try{const v=localStorage.getItem('tw_hol_'+y);holCache[y]=v?JSON.parse(v):null}catch(e){holCache[y]=null}
+  return holCache[y];
+}
+function fetchHolidays(){
+  const y=new Date().getFullYear();
+  for(const yy of [y,y+1]){
+    if(holYear(yy))continue;
+    fetch(`https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/${yy}.json`).then(r=>r.ok?r.json():null).then(d=>{
+      if(!Array.isArray(d)||d.length<300)return;
+      const o={h:{},w:[]};
+      for(const x of d){const md=x.date.slice(4),we=x.week==='六'||x.week==='日';
+        if(x.isHoliday&&(!we||x.description))o.h[md]=x.description||'國定假日';if(!x.isHoliday&&we)o.w.push(md)}
+      holCache[yy]=o;try{localStorage.setItem('tw_hol_'+yy,JSON.stringify(o))}catch(e){}
+      render();
+    }).catch(()=>{});
+  }
+}
+/* 回傳這天放假的原因；上班日回傳空字串 */
+function offReason(s){
+  const Y=holYear(s.slice(0,4)),k=s.slice(5,7)+s.slice(8,10),w=pd(s).getDay();
+  if(Y&&Y.w.includes(k))return '';
+  if(Y&&Y.h[k])return Y.h[k];
+  return w===0?'星期日':w===6?'星期六':'';
+}
+/* 發薪日：當月或次月發、遇假日照原日／提前／延後、單月手動改 */
+function expectedPay(j,ym0){return payShift(j,ym0).date}
+function payShift(j,ym0){
+  const y=+ym0.slice(0,4),m=+ym0.slice(5)-1+(j.payMonth==='next'?1:0);
+  const orig=ds(mkDate(y,m,+j.payDay||5));let d=orig;
+  const why=offReason(orig),step=j.holiday==='before'?-1:j.holiday==='after'?1:0;
+  if(why&&step)for(let i=0;i<20&&offReason(d);i++)d=addDays(d,step);
+  return {orig,date:d,why,moved:d!==orig,noData:!holYear(orig.slice(0,4))};
+}
+function payInfo(j,ym0){
+  const S=payShift(j,ym0),exp=S.date,ov=monthRec(ym0,j.id).payDate,date=ov||exp,td=today();
+  const tx=db.txs.find(t=>t.salaryKey===ym0+'|'+j.id);
+  const days=Math.round((pd(date)-pd(td))/864e5);
+  let st,cls='';
+  if(tx){st=`已入帳 ${md(tx.date)}`;cls='ok'}
+  else if(days<0){st=ov?`延後到 ${md(date)}，已過 ${-days} 天還沒入帳`:`過了發薪日 ${-days} 天還沒入帳`;cls='late'}
+  else if(days===0)st='今天發薪';
+  else st=`${ov?'延後，':''}還有 ${days} 天`;
+  return {exp,date,ov:!!ov,tx,days,st,cls,S,delay:ov?Math.round((pd(ov)-pd(exp))/864e5):0};
+}
+function defaultAlloc(){
+  const has=c=>db.categories.out.includes(c);
+  const pick=a=>a.filter(has);
+  return {withBonus:false,fixed:true,buckets:[
+    {id:uid(),name:'儲蓄',pct:30,cats:[],save:true},
+    {id:uid(),name:'生活消費',pct:50,cats:pick(['餐飲','交通','居家','醫療','購物'])},
+    {id:uid(),name:'娛樂彈性',pct:15,cats:pick(['娛樂','其他'])},
+    {id:uid(),name:'學習投資',pct:5,cats:pick(['教育'])}]};
+}
+function fixedCosts(ym){
+  const a=ym+'-01',z=ym+'-'+pad(mlen(+ym.slice(0,4),+ym.slice(5)-1));let loan=0,rec=0;
+  for(const L of loans()){
+    const sch=lSchedule(L);
+    let v=db.txs.filter(t=>t.loanId===L.id&&t.loanNo&&t.date>=a&&t.date<=z).reduce((s,t)=>s+t.amount,0)
+      +sch.filter(x=>x.date>=a&&x.date<=z).reduce((s,x)=>s+x.pay,0);
+    /* 設定前的月份（例如下一期在下個月）也照每月月付金額算，因為這個月其實也有繳 */
+    if(!v&&sch.length&&z<sch[0].date&&lNextNo(L)===1)v=sch[0].pay;
+    loan+=v;
+  }
+  for(const r of db.recurring){
+    if(r.type!=='out'||(r.end&&r.end<a))continue;
+    let k=occurrences(r,a,z).length;
+    if(!k&&r.freq==='monthly'&&r.start>z)k=1;
+    rec+=k*r.amount;
+  }
+  const A=db.salary.alloc||{},items=(A.fixedItems||[]).filter(x=>+x.amount>0);
+  const other=items.reduce((s,x)=>s+(+x.amount),0);
+  return {loan,rec,other,items,total:loan+rec+other};
+}
+function allocCalc(ym){
+  const A=db.salary.alloc||=defaultAlloc(),inc=monthIncome(ym);
+  const base=inc.salary+(A.withBonus?inc.bonus:0),fx=A.fixed?fixedCosts(ym):{loan:0,rec:0,other:0,items:[],total:0};
+  const remain=Math.max(0,base-fx.total);
+  const fxCats=A.fixed?(A.fixedItems||[]).map(x=>x.cat).filter(Boolean):[];
+  const mt=db.txs.filter(t=>t.type==='out'&&t.date.startsWith(ym)&&!t.recId&&!t.loanId&&!fxCats.includes(t.category));
+  const U=A.round==null?100:+A.round||1;
+  const rows=A.buckets.map(b=>({b,amt:Math.floor(remain*(+b.pct||0)/100/U)*U,
+    spent:b.cats.length?mt.filter(t=>b.cats.includes(t.category)).reduce((s,t)=>s+t.amount,0):null}));
+  const pctSum=A.buckets.reduce((s,b)=>s+(+b.pct||0),0);
+  const rest=pctSum>=100?remain-rows.reduce((s,r)=>s+r.amt,0):0;
+  return {A,base,fx,remain,rows,rest,U};
+}
+
+let payOpen={};
+function renderPay(){
+  const ym0=ym(),m=cur.getMonth()+1;
+  if(!jobs().length){
+    $('#v-pay').innerHTML=`<div class="empty">${art()}<b>還沒有設定薪資</b>填好正職和兼職的薪資，就能估算每月實收、年終獎金扣多少，並幫你分配這筆錢。
+      <div class="acts" style="justify-content:center"><button class="btn" style="flex:0 0 auto;padding:12px 28px" onclick="openJobForm()">設定薪資</button></div></div>`;return;
+  }
+  const inc=monthIncome(ym0);
+  let h=`<div class="card"><div class="sub">${m} 月預估實收</div><div class="big num c-in">${money(inc.salary+inc.bonus)}</div>
+    <div class="subrow num"><span>薪資 <b>${money(inc.salary)}</b></span>${inc.bonus?`<span>獎金 <b>${money(inc.bonus)}</b></span>`:''}</div></div>`;
+
+  for(const {j,c} of inc.J){
+    const open=payOpen[j.id],r=monthRec(ym0,j.id);
+    const line=(n,v,cls='')=>v?`<div class="li"><span class="nm">${n}</span><span class="num ${cls}">${money(v)}</span></div>`:'';
+    h+=`<div class="card"><h2>${esc(j.name)} <span class="tag">${j.kind==='main'?'正職':'兼職'}</span><span style="flex:1"></span><span class="num">${money(c.net)}</span></h2>
+      <div class="sub">應發 ${money(c.gross)}・扣除 ${money(c.gross-c.net)}</div>
+      ${(()=>{const P=payInfo(j,ym0);return `<div class="banner" style="margin:10px 0 0;display:block">
+        <div style="display:flex;justify-content:space-between;gap:8px"><span>預計 ${md(P.exp)} 發薪${j.payMonth==='next'?'（次月發）':''}</span><span class="tag ${P.cls}" style="margin:0">${P.st}</span></div>
+        <div class="f" style="margin:8px 0 0"><label>實際發薪日（延後時改這裡）</label>
+          <div style="display:flex;gap:8px"><input type="date" style="background:var(--paper)" value="${P.date}" onchange="setPayDate('${j.id}',this.value)">
+          ${P.ov?`<button class="sbtn" onclick="setPayDate('${j.id}','')">還原</button>`:''}</div></div>
+        ${P.S.why?`<div class="sub" style="margin-top:4px">${md(P.S.orig)} 是${P.S.why}，${P.S.moved?`${j.holiday==='before'?'提前':'延後'}到 ${md(P.S.date)}`:'照原日發薪'}</div>`:''}
+        ${P.ov&&P.delay>0?`<div class="sub" style="margin-top:4px">比預計晚 ${P.delay} 天</div>`:''}
+        ${P.S.noData?`<div class="sub" style="margin-top:4px">還沒有 ${P.S.orig.slice(0,4)} 年國定假日資料，目前只判斷週末（連上網路會自動下載）</div>`:''}</div>`})()}
+      <div class="${j.pay==='hourly'?'':'two'}" style="margin-top:12px">
+        ${j.pay==='hourly'?`<div class="f"><label>本月時數</label><input type="number" inputmode="decimal" value="${r.hours??''}" placeholder="${j.hoursDefault||0}" onchange="setMonthVal('${j.id}','hours',this.value)"></div>`
+          :`<div class="f"><label>事假（小時）</label><input type="number" inputmode="decimal" value="${r.personal??''}" placeholder="0" onchange="setMonthVal('${j.id}','personal',this.value)"></div>
+            <div class="f"><label>病假（小時）</label><input type="number" inputmode="decimal" value="${r.sick??''}" placeholder="0" onchange="setMonthVal('${j.id}','sick',this.value)"></div>`}
+      </div>
+      <div class="two"><div class="f"><label>加班費／其他加項</label><input type="number" inputmode="decimal" value="${r.extra??''}" placeholder="0" onchange="setMonthVal('${j.id}','extra',this.value)"></div>
+        <div class="f"><label>其他扣款</label><input type="number" inputmode="decimal" value="${r.deduct??''}" placeholder="0" onchange="setMonthVal('${j.id}','deduct',this.value)"></div></div>
+      <button class="link" onclick="payOpen['${j.id}']=!payOpen['${j.id}'];renderPay()">${open?'收起明細':'看扣款明細'}</button>
+      ${open?`<div class="brk" style="margin-top:6px">
+        ${line(j.pay==='hourly'?`時薪 ${money(j.hourly)} × ${c.hours} 小時`:'月薪',c.base)}
+        ${line(`事假 ${r.personal||0} 小時（全額扣）`,-c.personal,'c-out')}
+        ${line(`病假 ${r.sick||0} 小時（扣半薪）`,-c.sick,'c-out')}
+        ${line('加班費／其他加項',c.extra)}
+        ${line(`勞保（投保 ${money(c.L)}）`,-c.labor,'c-out')}
+        ${line(`健保（投保 ${money(c.H)}${c.deps?`，含眷屬 ${c.deps} 人`:''}）`,-c.health,'c-out')}
+        ${line(`勞退自提 ${j.pension||0}%`,-c.pension,'c-out')}
+        ${line('二代健保補充保費（兼職 2.11%）',-c.supp,'c-out')}
+        ${line('所得稅預扣',-c.wh,'c-out')}
+        ${line('其他扣款',-c.deduct,'c-out')}
+        <div class="li"><b class="nm">實收</b><b class="num">${money(c.net)}</b></div></div>
+        ${c.wh?'<p class="hint">預扣的所得稅隔年報稅時會多退少補。</p>':''}`:''}
+      <div class="acts"><button class="btn ghost" style="flex:1" onclick="recordSalary('${j.id}')">記入帳本</button></div>
+    </div>`;
+  }
+
+  // 獎金
+  const yr=ym0.slice(0,4),bc=calcBonuses(yr);
+  const bl=db.salary.bonuses.filter(b=>b.date.startsWith(yr)&&acctJob(b.jobId)).sort((a,b)=>a.date.localeCompare(b.date));
+  h+=`<div class="card"><h2>${yr} 年終與獎金<button class="link" onclick="openBonusForm()">新增</button></h2>`;
+  const mj=jobs().find(j=>j.kind==='main');
+  if(mj){const th=4*jobIns(mj).H,used=bl.filter(b=>b.jobId===mj.id).reduce((s,b)=>s+(+b.amount||0),0);
+    h+=`<div class="sub">${esc(mj.name)} 獎金累計 ${money(used)}，免補充保費額度 ${money(th)}（投保金額 × 4）${used<th?`，還剩 ${money(th-used)}`:`，已超過 ${money(used-th)}`}</div>
+      <div class="mini" style="margin:6px 0 4px"><i style="width:${Math.min(100,th?used/th*100:0)}%;${used>th?'background:var(--out)':''}"></i></div>`}
+  h+=bl.length?bl.map(b=>{const c=bc[b.id],j=acctJob(b.jobId);
+    return `<button class="li btn-li" onclick="openBonusForm('${b.id}')"><span class="nm">${esc(b.name)}<small>${md(b.date)}・${esc(j.name)}・補充保費 ${money(c.supp)}・預扣稅 ${money(c.wh)}</small></span>
+      <span class="num" style="text-align:right">${money(c.net)}<small style="display:block;color:var(--dim);font-size:12px">應發 ${money(b.amount)}</small></span></button>`}).join('')
+    :`<p class="hint" style="margin:6px 0 0">把預計會領的年終、三節、績效獎金加進來，會自動算二代健保和預扣稅。</p>`;
+  h+=`</div>`;
+
+  // 配置
+  const al=allocCalc(ym0);
+  h+=`<div class="card"><h2>${m} 月金錢配置<button class="link" onclick="openAllocForm()">編輯</button></h2>
+    <div class="row"><span>可分配（實收${al.A.withBonus?'含獎金':'不含獎金'}）</span><b class="num">${money(al.base)}</b></div>
+    ${al.A.fixed?`<div class="row"><span>先扣固定支出</span><b class="num c-out">-${money(al.fx.total)}</b></div>
+      <div class="sub" style="margin:-2px 0 6px">${[al.fx.loan?`貸款 ${money(al.fx.loan)}`:'',...al.fx.items.map(x=>`${esc(x.name||'固定支出')} ${money(+x.amount)}`),al.fx.rec?`週期性付款 ${money(al.fx.rec)}`:''].filter(Boolean).join('・')||'還沒有固定支出，可按「編輯」加入房租等'}</div>`:''}
+    <div class="row" style="margin-bottom:6px"><span>剩下可以分配</span><b class="num">${money(al.remain)}</b></div>
+    ${al.base<al.fx.total?`<p class="hint" style="color:var(--out)">固定支出比實收還多 ${money(al.fx.total-al.base)}，這個月需要動用存款。</p>`:''}
+    ${al.rows.map(({b,amt,spent})=>`<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>${esc(b.name)} <span class="sub">${b.pct}%</span></span><b class="num">${money(amt)}</b></div>
+      ${spent!=null?`<div class="bar" style="height:8px;margin:6px 0 2px"><i class="${spent>amt?'over':''}" style="width:${amt?Math.min(100,spent/amt*100):spent?100:0}%"></i></div>
+        <div class="sub">已花 ${money(spent)}${amt-spent>=0?`・還剩 ${money(amt-spent)}`:`・超出 ${money(spent-amt)}`}</div>`
+      :b.save?`<button class="sbtn" style="margin-top:6px" onclick="saveTransfer(${amt})">記一筆轉到儲蓄帳戶</button>`:''}</div>`).join('')}
+    ${al.rest>0?`<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>零頭 <span class="sub">取整數後剩下的</span></span><b class="num">${money(al.rest)}</b></div><div class="sub">留在帳戶當緩衝就好</div></div>`:''}
+    <div class="acts"><button class="btn ghost" style="flex:1" onclick="applyAllocBudget()">把消費類別設成每月預算</button></div></div>`;
+  h+=`<div class="acts" style="margin-top:0"><button class="btn ghost" style="flex:1" onclick="openJobList()">薪資設定</button></div>
+    <p class="hint" style="margin-top:12px">依 2026 年勞健保級距與費率估算，實際以公司薪資單為準。</p>`;
+  $('#v-pay').innerHTML=h;
+}
+async function setPayDate(id,v){
+  const j=acctJob(id),ym0=ym(),M=db.salary.months[ym0]||={},r=M[id]||={};
+  if(!v||v===expectedPay(j,ym0))delete r.payDate;else r.payDate=v;
+  const tx=db.txs.find(t=>t.salaryKey===ym0+'|'+id);
+  if(tx&&v&&tx.date!==v&&await ask('這個月的薪資已經記入帳本，要把入帳日也改成新日期嗎？'))tx.date=v;
+  save();render();
+}
+function setMonthVal(id,k,v){
+  const M=db.salary.months[ym()]||={};const r=M[id]||={};
+  if(v==='')delete r[k];else r[k]=parseFloat(v);
+  save();renderPay();
+}
+async function recordSalary(id){
+  const j=acctJob(id),ym0=ym(),c=calcJob(j,ym0),key=ym0+'|'+id;
+  if(!j.accountId||!acct(j.accountId))return toast('請先在薪資設定選好入帳帳戶');
+  const old=db.txs.find(t=>t.salaryKey===key);
+  if(old&&!await ask(`這個月已經記過 ${money(old.amount)}，要改成 ${money(c.net)} 嗎？`))return;
+  if(!db.categories.in.includes('薪資'))db.categories.in.unshift('薪資');
+  const t={id:old?.id||uid(),ts:Date.now(),type:'in',amount:c.net,accountId:j.accountId,toAccountId:'',category:'薪資',projectId:'',
+    date:payInfo(j,ym0).date,note:`${j.name} ${cur.getMonth()+1} 月薪資`,salaryKey:key};
+  if(old)db.txs[db.txs.indexOf(old)]=t;else db.txs.push(t);
+  save();render();toast('已記入帳本');
+}
+function saveTransfer(amt){
+  const src=db.accounts.find(a=>a.id===(jobs().find(j=>j.kind==='main')||jobs()[0])?.accountId)||db.accounts.find(a=>a.type==='bank');
+  openTx();Object.assign(draft,{type:'move',amount:amt,accountId:src?.id||draft.accountId,note:'儲蓄'});
+  if(draft.toAccountId===draft.accountId)draft.toAccountId=db.accounts.find(a=>a.id!==draft.accountId)?.id;drawTx();
+}
+async function applyAllocBudget(){
+  const al=allocCalc(ym()),v=al.rows.filter(x=>x.b.cats.length).reduce((s,x)=>s+x.amt,0);
+  if(!await ask(`把每月預算設為 ${money(v)}（有對應消費類別的配置加總）？`))return;
+  db.budget=v;save();render();toast('已更新每月預算');
+}
+
+/* ---- 薪資設定 ---- */
+function openJobList(){
+  openSheet(`<h2>薪資設定</h2>
+    ${jobs().map(j=>`<button class="li btn-li" onclick="openJobForm('${j.id}')"><span class="nm">${esc(j.name)} <span class="tag">${j.kind==='main'?'正職':'兼職'}</span>
+      <small>${j.pay==='hourly'?`時薪 ${money(j.hourly)}・每月約 ${j.hoursDefault||0} 小時`:`月薪 ${money(j.amount)}`}・${esc(acctName(j.accountId))}</small></span><span class="v">›</span></button>`).join('')||'<p class="hint">還沒有工作。</p>'}
+    <div class="acts"><button class="btn ghost" onclick="closeSheet()">完成</button><button class="btn" onclick="openJobForm()">新增工作</button></div>`);
+}
+let jdraft;
+function openJobForm(id){
+  const e=id?acctJob(id):null,hasMain=jobs().some(x=>x.kind==='main');
+  jdraft=e?{...e}:{name:hasMain?'兼職':'正職',kind:hasMain?'part':'main',pay:hasMain?'hourly':'monthly',amount:'',hourly:'',hoursDefault:'',
+    laborIns:'',healthIns:'',deps:0,pension:0,withhold:'table',taxDeps:0,laborEnroll:true,
+    accountId:(db.accounts.find(a=>a.type==='bank')||db.accounts[0])?.id,payDay:5,payMonth:'same',holiday:'keep'};
+  openSheet('');drawJob();
+}
+function syncJob(){
+  const g=id=>document.getElementById(id);
+  for(const [k,el] of [['name','jn'],['amount','ja'],['hourly','jh'],['hoursDefault','jhd'],['laborIns','jl'],['healthIns','jhi'],['deps','jd'],['pension','jp'],['withhold','jw'],['taxDeps','jt'],['accountId','jac'],['payDay','jpd'],['payMonth','jpm'],['holiday','jhol']])
+    if(g(el))jdraft[k]=g(el).value;
+  if(g('jle'))jdraft.laborEnroll=g('jle').checked;
+}
+function drawJob(){
+  const j=jdraft,a=autoIns({...j,laborIns:'',healthIns:''}),isPart=j.kind==='part';
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>${j.id?'編輯工作':'新增工作'}</h2>
+    <div class="seg"><button class="${!isPart?'on':''}" onclick="syncJob();jdraft.kind='main';drawJob()">正職</button><button class="${isPart?'on':''}" onclick="syncJob();jdraft.kind='part';drawJob()">兼職</button></div>
+    <div class="f"><label>名稱</label><input id="jn" value="${esc(j.name)}"></div>
+    <div class="seg"><button class="${j.pay!=='hourly'?'on':''}" onclick="syncJob();jdraft.pay='monthly';drawJob()">月薪</button><button class="${j.pay==='hourly'?'on':''}" onclick="syncJob();jdraft.pay='hourly';drawJob()">時薪</button></div>
+    ${j.pay==='hourly'?`<div class="two"><div class="f"><label>時薪</label><input id="jh" type="number" inputmode="decimal" value="${j.hourly}" placeholder="196" onchange="syncJob();drawJob()"></div>
+        <div class="f"><label>每月大約時數</label><input id="jhd" type="number" inputmode="decimal" value="${j.hoursDefault}" onchange="syncJob();drawJob()"></div></div>`
+      :`<div class="f"><label>月薪總額（本薪＋固定津貼）</label><input id="ja" type="number" inputmode="numeric" value="${j.amount}" onchange="syncJob();drawJob()"></div>`}
+    ${isPart?`<label class="toggle"><input type="checkbox" id="jle" ${j.laborEnroll?'checked':''} onchange="syncJob();drawJob()"> 這份兼職有幫我保勞保</label>`:''}
+    <div class="two">
+      ${!isPart||j.laborEnroll?`<div class="f"><label>勞保投保薪資</label><input id="jl" type="number" inputmode="numeric" value="${j.laborIns}" placeholder="自動 ${a.L}"></div>`:''}
+      ${!isPart?`<div class="f"><label>健保投保金額</label><input id="jhi" type="number" inputmode="numeric" value="${j.healthIns}" placeholder="自動 ${a.H}"></div>`:''}
+    </div>
+    ${!isPart?`<div class="two"><div class="f"><label>健保眷屬人數</label><input id="jd" type="number" inputmode="numeric" min="0" max="3" value="${j.deps}"></div>
+        <div class="f"><label>勞退自提（0–6%）</label><input id="jp" type="number" inputmode="numeric" min="0" max="6" value="${j.pension}"></div></div>
+      <div class="two"><div class="f"><label>所得稅預扣方式</label><select id="jw"><option value="table" ${j.withhold!=='flat5'?'selected':''}>依扣繳稅額表</option><option value="flat5" ${j.withhold==='flat5'?'selected':''}>未填免稅額申報表（5%）</option></select></div>
+        <div class="f"><label>配偶＋受扶養人數</label><input id="jt" type="number" inputmode="numeric" min="0" value="${j.taxDeps}"></div></div>`
+      :`<p class="hint">兼職：健保在正職投保，所以單次領 ${money(MINW)} 以上會扣 2.11% 補充保費；單次 ${money(WH_TH)} 以上預扣 5% 所得稅。</p>`}
+    <p class="hint">投保金額留空會依 2026 級距自動算；薪資單上的數字不同就填薪資單的。</p>
+    <div class="two"><div class="f"><label>入帳帳戶</label><select id="jac">${acctOpts(j.accountId,x=>x.type!=='credit'&&x.type!=='loan')}</select></div>
+      <div class="f"><label>發薪日（每月幾號）</label><input id="jpd" type="number" inputmode="numeric" min="1" max="31" value="${j.payDay}"></div></div>
+    <div class="two"><div class="f"><label>這個月的薪水</label><select id="jpm"><option value="same" ${j.payMonth!=='next'?'selected':''}>當月發</option><option value="next" ${j.payMonth==='next'?'selected':''}>次月發</option></select></div>
+      <div class="f"><label>遇到假日（週末、國定假日）</label><select id="jhol">${[['keep','準時，照原日'],['before','提前到前一個上班日'],['after','延後到下一個上班日']].map(([k,v])=>`<option value="${k}" ${(j.holiday||'keep')===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+    <p class="hint">會自動判斷週末、國定假日和補假（依人事行政總處辦公日曆），補班的週六算上班日。臨時延後的月份，到「薪資與配置」頁改那個月的實際發薪日就好。</p>
+    <div class="acts">${j.id?`<button class="btn del" onclick="delJob('${j.id}')">刪除</button>`:''}
+      <button class="btn ghost" onclick="${jobs().length?'openJobList()':'closeSheet()'}">取消</button><button class="btn" onclick="saveJob()">儲存</button></div>`;
+}
+function saveJob(){
+  syncJob();const j=jdraft;
+  j.name=j.name.trim();if(!j.name)return toast('請輸入名稱');
+  if(j.pay==='hourly'?!(+j.hourly>0):!(+j.amount>0))return toast(j.pay==='hourly'?'請輸入時薪':'請輸入月薪');
+  j.pension=Math.min(6,Math.max(0,+j.pension||0));j.deps=Math.min(3,Math.max(0,+j.deps||0));
+  if(j.id)Object.assign(acctJob(j.id),j);else{j.id=uid();db.salary.jobs.push(j)}
+  save();render();openJobList();toast('已儲存');
+}
+async function delJob(id){
+  if(!await ask('刪除這份工作？它的獎金紀錄也會一起刪除。'))return;
+  db.salary.jobs=jobs().filter(j=>j.id!==id);db.salary.bonuses=db.salary.bonuses.filter(b=>b.jobId!==id);
+  save();render();openJobList();
+}
+
+/* ---- 獎金 ---- */
+function openBonusForm(id){
+  if(!jobs().length)return toast('先到薪資設定新增工作');
+  const b=id?db.salary.bonuses.find(x=>x.id===id):{name:'年終獎金',jobId:(jobs().find(j=>j.kind==='main')||jobs()[0]).id,amount:'',date:today()};
+  openSheet(`<h2>${id?'編輯獎金':'新增獎金'}</h2>
+    <div class="f"><label>名稱</label><input id="bn" value="${esc(b.name)}" placeholder="年終、三節、績效"></div>
+    <div class="two"><div class="f"><label>哪份工作</label><select id="bj">${jobs().map(j=>`<option value="${j.id}" ${j.id===b.jobId?'selected':''}>${esc(j.name)}</option>`).join('')}</select></div>
+      <div class="f"><label>發放日</label><input id="bd" type="date" value="${b.date}"></div></div>
+    <div class="f"><label>應發金額</label><input id="ba" type="number" inputmode="numeric" value="${b.amount}"></div>
+    <p class="hint">正職獎金：同一年累計超過健保投保金額 4 倍的部分，扣 2.11% 補充保費。兼職獎金：單次 ${money(MINW)} 以上整筆扣 2.11%。任一筆單次 ${money(WH_TH)} 以上預扣 5% 所得稅。</p>
+    <div class="acts">${id?`<button class="btn del" onclick="delBonus('${id}')">刪除</button><button class="btn ghost" onclick="recordBonus('${id}')">記入帳本</button>`:''}
+      <button class="btn ghost" onclick="closeSheet()">取消</button><button class="btn" onclick="saveBonus('${id||''}')">儲存</button></div>`);
+}
+function saveBonus(id){
+  const amount=parseFloat($('#ba').value),name=$('#bn').value.trim()||'獎金',date=$('#bd').value;
+  if(!(amount>0))return toast('請輸入金額');if(!date)return toast('請選擇發放日');
+  const d={name,jobId:$('#bj').value,amount,date};
+  if(id)Object.assign(db.salary.bonuses.find(x=>x.id===id),d);else db.salary.bonuses.push({id:uid(),...d});
+  save();closeSheet();render();toast('已儲存獎金');
+}
+async function delBonus(id){if(!await ask('刪除這筆獎金？'))return;db.salary.bonuses=db.salary.bonuses.filter(b=>b.id!==id);save();closeSheet();render()}
+async function recordBonus(id){
+  const b=db.salary.bonuses.find(x=>x.id===id),j=acctJob(b.jobId),c=calcBonuses(b.date.slice(0,4))[id];
+  if(!j.accountId||!acct(j.accountId))return toast('請先在薪資設定選好入帳帳戶');
+  const old=db.txs.find(t=>t.bonusId===id);
+  if(old&&!await ask('這筆獎金已經記過，要更新金額嗎？'))return;
+  if(!db.categories.in.includes('獎金'))db.categories.in.push('獎金');
+  const t={id:old?.id||uid(),ts:Date.now(),type:'in',amount:c.net,accountId:j.accountId,toAccountId:'',category:'獎金',projectId:'',date:b.date,note:`${j.name} ${b.name}`,bonusId:id};
+  if(old)db.txs[db.txs.indexOf(old)]=t;else db.txs.push(t);
+  save();closeSheet();render();toast('已記入帳本');
+}
+
+/* ---- 金錢配置 ---- */
+let adraft;
+function openAllocForm(){adraft=JSON.parse(JSON.stringify(db.salary.alloc||=defaultAlloc()));openSheet('');drawAlloc()}
+function syncAlloc(){document.querySelectorAll('#sheet [data-fx]').forEach(el=>{const x=adraft.fixedItems[+el.dataset.fx];x.name=el.querySelector('.fn').value.trim();x.amount=parseFloat(el.querySelector('.fa').value)||'';x.cat=el.querySelector('.fc').value});document.querySelectorAll('#sheet [data-b]').forEach(el=>{const b=adraft.buckets[+el.dataset.b];b.name=el.querySelector('.an').value;b.pct=parseFloat(el.querySelector('.ap').value)||0})}
+function drawAlloc(){
+  const A=adraft,sum=A.buckets.reduce((s,b)=>s+(+b.pct||0),0);
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>金錢配置</h2>
+    <label class="toggle"><input type="checkbox" ${A.fixed?'checked':''} onchange="syncAlloc();adraft.fixed=this.checked;drawAlloc()"> 先扣掉固定支出，再分配剩下的</label>
+    ${A.fixed?`<div class="stmt"><div class="sub" style="margin-bottom:6px">貸款和週期性付款會自動算進去。房租等其他每月固定的錢加在這裡：</div>
+      ${(A.fixedItems||[]).map((x,i)=>`<div data-fx="${i}" style="display:grid;grid-template-columns:1fr 96px 34px;gap:8px;align-items:end;margin-bottom:8px">
+        <div class="f" style="margin:0"><label>名稱</label><input class="fn" value="${esc(x.name)}" placeholder="例：房租"></div>
+        <div class="f" style="margin:0"><label>每月金額</label><input class="fa" type="number" inputmode="numeric" value="${x.amount}"></div>
+        <button class="x" aria-label="移除" onclick="syncAlloc();adraft.fixedItems.splice(${i},1);drawAlloc()">✕</button>
+        <div class="f" style="margin:0;grid-column:1/3"><label>記帳時用的分類（選填，這類支出就不會再算進消費）</label><select class="fc"><option value="">不指定</option>${db.categories.out.map(c=>`<option ${x.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div></div>`).join('')}
+      <button class="link" onclick="syncAlloc();(adraft.fixedItems||=[]).push({name:'',amount:'',cat:''});drawAlloc()">＋ 新增固定支出</button></div>`:''}
+    <label class="toggle" style="margin-top:-4px"><input type="checkbox" ${A.withBonus?'checked':''} onchange="syncAlloc();adraft.withBonus=this.checked"> 當月有獎金時一起分配</label>
+    <div class="f"><label>分配金額取整數</label><select onchange="syncAlloc();adraft.round=+this.value">${[[1,'不取整（算到個位數）'],[100,'取到百位（例：13,500）'],[500,'取到 500（例：13,500）'],[1000,'取到千位（例：13,000）']].map(([v,t])=>`<option value="${v}" ${(adraft.round==null?100:+adraft.round)===v?'selected':''}>${t}</option>`).join('')}</select></div>
+    ${A.buckets.map((b,i)=>`<div class="stmt" data-b="${i}">
+      <div style="display:grid;grid-template-columns:1fr 84px 34px;gap:8px;align-items:end">
+        <div class="f" style="margin:0"><label>名稱</label><input class="an" value="${esc(b.name)}"></div>
+        <div class="f" style="margin:0"><label>比例 %</label><input class="ap" type="number" inputmode="numeric" value="${b.pct}" onchange="syncAlloc();drawAlloc()"></div>
+        <button class="x" aria-label="移除" onclick="syncAlloc();adraft.buckets.splice(${i},1);drawAlloc()">✕</button></div>
+      <div class="sub" style="margin:8px 0 4px">${b.save?'儲蓄類：不追蹤花費，提供轉帳按鈕':'對應的支出分類（用來算已花多少）'}</div>
+      ${b.save?`<button class="sbtn" onclick="syncAlloc();adraft.buckets[${i}].save=false;drawAlloc()">改成消費類</button>`
+        :`<div class="chips" style="flex-wrap:wrap;margin:0">${db.categories.out.map(c=>`<button class="chip ${b.cats.includes(c)?'on':''}" onclick="syncAlloc();togAllocCat(${i},'${esc(c)}')">${esc(c)}</button>`).join('')}</div>
+          <button class="sbtn" style="margin-top:6px" onclick="syncAlloc();adraft.buckets[${i}].save=true;adraft.buckets[${i}].cats=[];drawAlloc()">改成儲蓄類</button>`}
+    </div>`).join('')}
+    <button class="link" onclick="syncAlloc();adraft.buckets.push({id:uid(),name:'新配置',pct:0,cats:[]});drawAlloc()">＋ 新增一項</button>
+    <p class="hint" style="margin-top:8px;${sum!==100?'color:var(--out)':''}">目前合計 ${sum}%${sum!==100?'，建議調成剛好 100%':''}</p>
+    <div class="acts"><button class="btn ghost" onclick="adraft=defaultAlloc();drawAlloc()">還原建議</button><button class="btn ghost" onclick="closeSheet()">取消</button><button class="btn" onclick="syncAlloc();db.salary.alloc=adraft;save();closeSheet();render();toast('已儲存配置')">儲存</button></div>`;
+}
+function togAllocCat(i,c){const b=adraft.buckets[i];b.cats=b.cats.includes(c)?b.cats.filter(x=>x!==c):[...b.cats,c];drawAlloc()}
+
+/* ---------- 週期性付款 ---------- */
+function openRecList(){
+  openSheet(`<h2>週期性付款</h2>
+    <p class="hint">時間到會自動記一筆。刷信用卡的款項也會算進該卡的應繳金額。</p>
+    <div>${db.recurring.length?db.recurring.map(r=>{const nx=nextOcc(r);
+      return `<button class="li btn-li" onclick="openRec('${r.id}')"><span class="nm">${esc(r.name)}
+        <small>${FREQ[r.freq]}${r.freq==='monthly'?` ${r.day} 日`:''}・${esc(acctName(r.accountId))}${nx?`・下次 ${md(nx)}`:'・已結束'}</small></span>
+        <span class="num ${r.type==='in'?'c-in':''}">${money(r.amount)}</span></button>`}).join('')
+      :`<div class="empty" style="padding:10px">${art()}<b>還沒有週期性付款</b>例如房租、Netflix、保費、薪水</div>`}</div>
+    <div class="acts"><button class="btn ghost" onclick="closeSheet()">關閉</button><button class="btn" onclick="openRec()">新增</button></div>`);
+}
+let rdraft;
+function openRec(id){
+  const r=id?db.recurring.find(x=>x.id===id):null;
+  rdraft=r?{...r}:{name:'',type:'out',amount:'',accountId:(cards()[0]||db.accounts[0])?.id,category:db.categories.out.includes('訂閱')?'訂閱':db.categories.out[0],
+    projectId:'',freq:'monthly',day:new Date().getDate(),start:today(),end:''};
+  openSheet('');drawRec();
+}
+function drawRec(){
+  const r=rdraft,editing=!!r.id;
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>${editing?'編輯週期性付款':'新增週期性付款'}</h2>
+    <div class="seg">${['out','in'].map(k=>`<button data-t="${k}" class="${r.type===k?'on':''}" onclick="syncRec();rdraft.type='${k}';if(!db.categories['${k}'].includes(rdraft.category))rdraft.category=db.categories['${k}'][0];drawRec()">${k==='out'?'支出':'收入'}</button>`).join('')}</div>
+    <div class="f"><label>名稱</label><input id="rn" value="${esc(r.name)}" placeholder="例：Netflix、房租"></div>
+    <div class="two"><div class="f"><label>金額</label><input id="ra" type="number" inputmode="decimal" value="${r.amount}"></div>
+      <div class="f"><label>帳戶</label><select id="rac">${acctOpts(r.accountId)}</select></div></div>
+    <div class="two"><div class="f"><label>分類</label><select id="rc">${db.categories[r.type].map(c=>`<option ${c===r.category?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+      <div class="f"><label>專案</label><select id="rp">${projOpts(r.projectId)}</select></div></div>
+    <div class="two"><div class="f"><label>頻率</label><select id="rf" onchange="syncRec();drawRec()">${Object.entries(FREQ).map(([k,v])=>`<option value="${k}" ${k===r.freq?'selected':''}>${v}</option>`).join('')}</select></div>
+      ${r.freq==='monthly'?`<div class="f"><label>每月幾號</label><input id="rd" type="number" inputmode="numeric" min="1" max="31" value="${r.day}"></div>`:'<div></div>'}</div>
+    <p class="hint">${r.freq==='monthly'?'遇到小月會在月底扣款。':r.freq==='weekly'?'以開始日是星期幾為準。':'以開始日的月、日為準。'}</p>
+    <div class="two"><div class="f"><label>開始日</label><input id="rs" type="date" value="${r.start}"></div>
+      <div class="f"><label>結束日（選填）</label><input id="re" type="date" value="${r.end||''}"></div></div>
+    <div class="acts">${editing?`<button class="btn del" onclick="delRec('${r.id}')">刪除</button>`:''}
+      <button class="btn ghost" onclick="openRecList()">返回</button><button class="btn" onclick="saveRec()">儲存</button></div>`;
+}
+function syncRec(){
+  const g=id=>document.getElementById(id);
+  if(g('rn'))rdraft.name=g('rn').value; if(g('ra'))rdraft.amount=g('ra').value;
+  if(g('rac'))rdraft.accountId=g('rac').value; if(g('rc'))rdraft.category=g('rc').value;
+  if(g('rp'))rdraft.projectId=g('rp').value; if(g('rf'))rdraft.freq=g('rf').value;
+  if(g('rd'))rdraft.day=g('rd').value; if(g('rs'))rdraft.start=g('rs').value; if(g('re'))rdraft.end=g('re').value;
+}
+async function saveRec(){
+  syncRec();const r=rdraft;
+  r.name=r.name.trim();r.amount=Math.round(parseFloat(r.amount)*100)/100;r.day=Math.min(31,Math.max(1,parseInt(r.day)||1));
+  if(!r.name)return toast('請輸入名稱');
+  if(!(r.amount>0))return toast('請輸入大於 0 的金額');
+  if(!r.start)return toast('請選擇開始日');
+  if(r.end&&r.end<r.start)return toast('結束日要晚於開始日');
+  const td=today();
+  if(!r.id){
+    r.id=uid();
+    const past=occurrences(r,r.start,td).length;
+    if(past&&!await ask(`開始日到今天共有 ${past} 次扣款，要一併補記嗎？`,'一併補記','不用，從明天開始'))r.posted=td;
+    db.recurring.push(r);
+  }else{
+    Object.assign(db.recurring.find(x=>x.id===r.id),r);
+  }
+  const n=postRecurring();save();render();openRecList();toast(n?`已儲存，並補記 ${n} 筆`:'已儲存');
+}
+async function delRec(id){
+  if(!await ask('刪除這個週期性付款？已經記錄的紀錄會保留。'))return;
+  db.recurring=db.recurring.filter(r=>r.id!==id);save();render();openRecList();toast('已刪除');
+}
+
+/* ---------- 帳戶 ---------- */
+function openAcct(id){
+  const a=id?acct(id):{name:'',type:'cash',init:0,stmtDay:'',dueDay:''};
+  openSheet(`<h2>${id?'編輯帳戶':'新增帳戶'}</h2>
+    <div class="f"><label>名稱</label><input id="an" value="${esc(a.name)}" placeholder="例：玉山信用卡"></div>
+    <div class="f"><label>類型</label><select id="at" onchange="$('#cc').style.display=this.value==='credit'?'grid':'none'">${Object.entries(TYPES).filter(([k])=>k!=='loan').map(([k,v])=>`<option value="${k}" ${k===a.type?'selected':''}>${v}</option>`).join('')}</select></div>
+    <div class="two" id="cc" style="display:${a.type==='credit'?'grid':'none'}">
+      <div class="f"><label>每月結帳日</label><input id="asd" type="number" inputmode="numeric" min="1" max="31" value="${a.stmtDay||''}" placeholder="例：15" oninput="acctPrev()"></div>
+      <div class="f"><label>最後繳款日</label><input id="add" type="number" inputmode="numeric" min="1" max="31" value="${a.dueDay||''}" placeholder="例：5" oninput="acctPrev()"></div>
+      <div class="f" style="grid-column:1/-1"><label>繳款日在</label><select id="adm" onchange="acctPrev()">
+        ${[['auto','自動判斷'],['same','結帳當月'],['next','結帳次月']].map(([k,v])=>`<option value="${k}" ${k===(a.dueMonth||'auto')?'selected':''}>${v}</option>`).join('')}</select></div>
+      <p class="hint" id="aprev" style="grid-column:1/-1;margin-top:-4px">${duePreview(a)||'月底結帳請填 31，小月會自動改成月底。'}</p>
+      <div class="f" style="grid-column:1/-1"><label>結帳日當天的消費</label><select id="aex2" onchange="acctPrev()">
+        <option value="0" ${a.stmtExcl?'':'selected'}>算進這一期</option><option value="1" ${a.stmtExcl?'selected':''}>算到下一期</option></select></div>
+      <div class="f" style="grid-column:1/-1"><label>信用額度（選填）</label><input id="alim" type="number" inputmode="numeric" value="${a.limit||''}" placeholder="例：100000"></div></div>
+    <div class="f"><label>初始餘額（信用卡欠款請填負數）</label><input id="ai" type="number" inputmode="decimal" class="num" value="${a.init}"></div>
+    <label class="toggle"><input type="checkbox" id="aex" ${a.excluded?'checked':''}> 不計入資產負債</label>
+    <p class="hint" style="margin-top:-6px">例如代管的錢、公司的卡。餘額和收支照常記錄，只是不算進淨資產。</p>
+    <div class="acts">${id?`<button class="btn del" onclick="delAcct('${id}')">刪除</button>`:''}
+      <button class="btn ghost" onclick="closeSheet()">取消</button><button class="btn" onclick="saveAcct('${id||''}')">儲存</button></div>`);
+}
+function acctPrev(){
+  const c={stmtDay:parseInt($('#asd').value),dueDay:parseInt($('#add').value),dueMonth:$('#adm').value,stmtExcl:$('#aex2')&&$('#aex2').value==='1'};
+  $('#aprev').textContent=duePreview(c)||'月底結帳請填 31，小月會自動改成月底。';
+}
+function openCardDates(){
+  const cs=cards();if(!cs.length)return toast('先到「帳戶」新增一張信用卡');
+  const opt=v=>[['auto','自動'],['same','當月'],['next','次月']].map(([k,t])=>`<option value="${k}" ${k===(v||'auto')?'selected':''}>${t}</option>`).join('');
+  openSheet(`<h2>結帳日／最後繳款日</h2>
+    <p class="hint">每張卡各自設定。「繳款日在」選自動時，繳款日數字大於結帳日算當月，否則算次月；不對再手動改。</p>
+    ${cs.map(c=>`<div class="bill" style="margin-bottom:10px" data-id="${c.id}">
+      <div class="top" style="margin-bottom:8px"><b>${esc(c.name)}</b></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="f" style="margin:0"><label>結帳日</label><input class="cd-s" type="number" inputmode="numeric" min="1" max="31" value="${c.stmtDay||''}" placeholder="15" oninput="cdPrev(this)"></div>
+        <div class="f" style="margin:0"><label>最後繳款日</label><input class="cd-d" type="number" inputmode="numeric" min="1" max="31" value="${c.dueDay||''}" placeholder="5" oninput="cdPrev(this)"></div>
+        <div class="f" style="margin:0"><label>繳款日在</label><select class="cd-m" onchange="cdPrev(this)">${opt(c.dueMonth)}</select></div>
+      </div><p class="hint cd-p" style="margin:8px 0 0">${duePreview(c)||'填好後會顯示範例'}</p></div>`).join('')}
+    <div class="acts"><button class="btn ghost" onclick="closeSheet()">取消</button><button class="btn" onclick="saveCardDates()">儲存</button></div>`);
+}
+function cdRead(box){
+  const n=v=>{const x=parseInt(v);return x>=1&&x<=31?x:''};
+  return {stmtDay:n(box.querySelector('.cd-s').value),dueDay:n(box.querySelector('.cd-d').value),dueMonth:box.querySelector('.cd-m').value};
+}
+function cdPrev(el){const box=el.closest('[data-id]');box.querySelector('.cd-p').textContent=duePreview(cdRead(box))||'填好後會顯示範例'}
+function saveCardDates(){
+  document.querySelectorAll('#sheet [data-id]').forEach(box=>Object.assign(acct(box.dataset.id),cdRead(box)));
+  save();closeSheet();render();toast('已儲存結帳／繳款日');
+}
+function saveAcct(id){
+  const name=$('#an').value.trim();if(!name)return toast('請輸入帳戶名稱');
+  const clamp=v=>{const n=parseInt(v);return n>=1&&n<=31?n:''};
+  const data={name,type:$('#at').value,init:parseFloat($('#ai').value)||0,stmtDay:clamp($('#asd').value),dueDay:clamp($('#add').value),dueMonth:$('#adm').value,limit:parseFloat($('#alim').value)>0?parseFloat($('#alim').value):0,stmtExcl:$('#aex2').value==='1',excluded:$('#aex').checked};
+  if(id)Object.assign(acct(id),data);else db.accounts.push({id:uid(),...data});
+  save();closeSheet();render();toast('已儲存帳戶');
+}
+async function delAcct(id){
+  const n=db.txs.filter(t=>t.accountId===id||t.toAccountId===id).length+db.recurring.filter(r=>r.accountId===id).length;
+  if(n)return toast(`這個帳戶還有 ${n} 筆紀錄或週期性付款，請先移除`);
+  if(!await ask('刪除這個帳戶？'))return;
+  db.accounts=db.accounts.filter(a=>a.id!==id);save();closeSheet();render();toast('已刪除帳戶');
+}
+
+/* ---------- 預算 ---------- */
+function editBudget(){
+  openSheet(`<h2>每月預算</h2>
+    <div class="amount-in"><span>$</span><input id="bg" class="num" type="number" inputmode="numeric" placeholder="0" value="${db.budget||''}"></div>
+    <p class="hint">填 0 代表不使用預算。</p>
+    <div class="acts"><button class="btn ghost" onclick="closeSheet()">取消</button>
+    <button class="btn" onclick="db.budget=Math.max(0,parseFloat($('#bg').value)||0);save();closeSheet();render();toast('已儲存預算')">儲存</button></div>`);
+  setTimeout(()=>$('#bg').focus(),280);
+}
+
+/* ---------- 分類／專案 ---------- */
+function editList(kind){
+  const title={out:'支出分類',in:'收入分類',proj:'專案'}[kind];
+  const items=kind==='proj'?db.projects.map(p=>p.name):db.categories[kind];
+  openSheet(`<h2>${title}</h2><div>
+    ${items.length?items.map((n,i)=>`<div class="li"><span class="nm">${esc(n)}</span><button class="x" onclick="rmItem('${kind}',${i})">移除</button></div>`).join('')
+      :`<p class="hint">還沒有專案。例如「日本旅遊」「裝潢」，記帳時就能標記。</p>`}</div>
+    <div class="addrow"><input id="ni" placeholder="新增${kind==='proj'?'專案':'分類'}名稱"><button onclick="addItem('${kind}')">新增</button></div>
+    <div class="acts"><button class="btn" onclick="closeSheet()">完成</button></div>`);
+}
+function addItem(kind){
+  const n=$('#ni').value.trim();if(!n)return;
+  if(kind==='proj')db.projects.push({id:uid(),name:n});
+  else{if(db.categories[kind].includes(n))return toast('已有這個分類');db.categories[kind].push(n)}
+  save();editList(kind);render();
+}
+async function rmItem(kind,i){
+  if(kind==='proj'){
+    if(!await ask('移除專案後，相關紀錄會變成「無專案」。確定？'))return;
+    const id=db.projects[i].id;db.projects.splice(i,1);
+    db.txs.forEach(t=>{if(t.projectId===id)t.projectId=''});db.recurring.forEach(r=>{if(r.projectId===id)r.projectId=''});
+  }else{
+    if(db.categories[kind].length<=1)return toast('至少要保留一個分類');
+    db.categories[kind].splice(i,1);
+  }
+  save();editList(kind);render();
+}
+
+/* ================= PWA Manifest ================= */
+(function(){
+  const iconURL=ICON_IMG;
+  const manifest={name:'存錢小豬記帳本',short_name:'記帳本',start_url:location.href,display:'standalone',
+    background_color:'#FDF8F2',theme_color:'#FDF8F2',icons:[{src:iconURL,sizes:'256x256',type:'image/jpeg',purpose:'any'}]};
+  const add=(rel,href)=>{const l=document.createElement('link');l.rel=rel;l.href=href;document.head.appendChild(l)};
+  const ownSite=/^https?:$/.test(location.protocol)&&!/claude\.ai|claudeusercontent|anthropic/.test(location.hostname);
+  if(ownSite){
+    /* 放在自己的網站（例如 GitHub Pages）：用正式的 manifest 與 service worker，可安裝成全螢幕 App、離線使用 */
+    add('manifest','manifest.json');add('icon','icon-192.png');add('apple-touch-icon','icon-192.png');
+    if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }else{
+    add('manifest',URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'})));
+    add('icon',iconURL);add('apple-touch-icon',iconURL);
+  }
+})();
+
+$('#xlsIn').onchange=e=>{const f=e.target.files[0];if(f)readImportFile(f)};
+load();oneTimeFixes();postRecurring();postLoans();render();fetchHolidays();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&(postRecurring()+postLoans()))render()});
+</script>
+</body>
+</html>
