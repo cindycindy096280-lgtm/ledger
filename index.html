@@ -544,7 +544,7 @@ function renderHome(){
 
   // 薪資與配置
   if(jobs().length){
-    const al=allocCalc(thisMonth),inc=monthIncome(thisMonth);
+    const al=allocCalc(thisMonth),inc=al.inc;
     h+=`<button class="card" data-sec="pay" data-name="薪資與配置" style="display:block;width:100%;border:0;text-align:left" onclick="cur=new Date();cur.setDate(1);go('pay')">
       <h2>${+thisMonth.slice(5)} 月預估實收<span class="num c-in">${money(inc.salary+inc.bonus)}</span></h2>
       ${jobs().map(j=>{let P=payInfo(j,thisMonth);
@@ -1559,6 +1559,18 @@ function calcBonuses(year){
   }
   return out;
 }
+/* 金錢配置用：這個月「實際入帳」的錢（例如 9 月份薪水 10/5 發，就算在 10 月） */
+function cashIncome(ym){
+  const y=+ym.slice(0,4),m=+ym.slice(5)-1,items=[];
+  for(const j of jobs())for(const k of [-2,-1,0]){
+    const d=new Date(y,m+k,1),wm=`${d.getFullYear()}-${pad(d.getMonth()+1)}`,P=payInfo(j,wm);
+    const date=P.tx?P.tx.date:P.date;if(!date.startsWith(ym))continue;
+    items.push({j,wm,date,net:P.tx?P.tx.amount:calcJob(j,wm).net,got:!!P.tx});
+  }
+  const bc=calcBonuses(ym.slice(0,4));
+  const B=db.salary.bonuses.filter(b=>b.date.startsWith(ym)&&acctJob(b.jobId)).map(b=>({b,c:bc[b.id]}));
+  return {items,B,salary:items.reduce((s,x)=>s+x.net,0),bonus:B.reduce((s,x)=>s+x.c.net,0)};
+}
 function monthIncome(ym){
   const J=jobs().map(j=>({j,c:calcJob(j,ym)}));
   const bc=calcBonuses(ym.slice(0,4));
@@ -1663,7 +1675,7 @@ function fixedCosts(ym){
   return {loan,rec,other,items,cards:cardsTot,cardItems,total:loan+rec+other+cardsTot};
 }
 function allocCalc(ym){
-  const A=db.salary.alloc||=defaultAlloc(),inc=monthIncome(ym);
+  const A=db.salary.alloc||=defaultAlloc(),inc=cashIncome(ym);
   const base=inc.salary+(A.withBonus?inc.bonus:0),fx=A.fixed?fixedCosts(ym):{loan:0,rec:0,other:0,items:[],cards:0,cardItems:[],total:0};
   const remain=Math.max(0,base-fx.total);
   const fxCats=A.fixed?(A.fixedItems||[]).map(x=>x.cat).filter(Boolean):[];
@@ -1683,7 +1695,7 @@ function allocCalc(ym){
     spent:b.cats.length?mt.filter(t=>b.cats.includes(t.category)).reduce((s,t)=>s+t.amount,0):null}));
   const pctSum=A.buckets.reduce((s,b)=>s+(+b.pct||0),0);
   const rest=hold?0:pctSum>=100?remain-rows.reduce((s,r)=>s+r.amt,0):0;
-  return {A,base,fx,remain,rows,rest,U,hold,shortFix,shortRw,rw,payList};
+  return {A,base,fx,remain,rows,rest,U,hold,shortFix,shortRw,rw,payList,inc};
 }
 
 let payOpen={};
@@ -1694,7 +1706,7 @@ function renderPay(){
       <div class="acts" style="justify-content:center"><button class="btn" style="flex:0 0 auto;padding:12px 28px" onclick="openJobForm()">設定薪資</button></div></div>`;return;
   }
   const inc=monthIncome(ym0);
-  let h=`<div class="card" data-sec="sum" data-name="本月預估實收"><div class="sub">${m} 月預估實收</div><div class="big num c-in">${money(inc.salary+inc.bonus)}</div>
+  let h=`<div class="card" data-sec="sum" data-name="本月預估實收"><div class="sub">${m} 月份薪資預估實收${jobs().some(j=>j.payMonth==='next')?'（次月發的會在下個月入帳）':''}</div><div class="big num c-in">${money(inc.salary+inc.bonus)}</div>
     <div class="subrow num"><span>薪資 <b>${money(inc.salary)}</b></span>${inc.bonus?`<span>獎金 <b>${money(inc.bonus)}</b></span>`:''}</div></div>`;
 
   for(const {j,c} of inc.J){
@@ -1752,8 +1764,9 @@ function renderPay(){
 
   // 配置
   const al=allocCalc(ym0);
-  h+=`<div class="card" data-sec="alloc" data-name="金錢配置"><h2>${m} 月金錢配置<button class="link" onclick="openAllocForm()">編輯</button></h2>
+  h+=`<div class="card" data-sec="alloc" data-name="金錢配置"><h2>${m} 月金錢配置<span class="sub" style="font-weight:400;margin-left:6px">用 ${m} 月入帳的錢</span><span style="flex:1"></span><button class="link" onclick="openAllocForm()">編輯</button></h2>
     <div class="row"><span>可分配（實收${al.A.withBonus?'含獎金':'不含獎金'}）</span><b class="num">${money(al.base)}</b></div>
+    <div class="sub" style="margin:-2px 0 6px">${al.inc.items.map(x=>`${esc(x.j.name)} ${+x.wm.slice(5)} 月份薪水 ${md(x.date)}${x.got?' 已入帳':''} ${money(x.net)}`).concat(al.A.withBonus?al.inc.B.map(x=>`${esc(x.b.name)} ${md(x.b.date)} ${money(x.c.net)}`):[]).join('・')||'這個月沒有薪水入帳'}</div>
     ${al.A.fixed?`<div class="row"><span>先扣固定支出</span><b class="num c-out">-${money(al.fx.total)}</b></div>
       <div class="sub" style="margin:-2px 0 6px">${[al.fx.cards?`信用卡費 ${money(al.fx.cards)}`:'',al.fx.loan?`貸款 ${money(al.fx.loan)}`:'',...al.fx.items.map(x=>`${esc(x.name||'固定支出')} ${money(+x.amount)}`),al.fx.rec?`週期性付款 ${money(al.fx.rec)}`:''].filter(Boolean).join('・')||'還沒有固定支出，可按「編輯」加入房租等'}</div>
       ${al.fx.cardItems.length?`<div class="stmt" style="padding:8px 12px;margin:0 0 8px">${al.fx.cardItems.map(x=>`<div class="row" style="padding:1px 0;font-size:13px"><span>${esc(x.name)} <span class="meta">${md(x.due)} 前繳・${x.closed?'已結帳':'累計中，還會變動'}</span></span><span class="num">${money(x.amount)}</span></div>`).join('')}</div>`:''}`:''}
