@@ -917,53 +917,64 @@ function mvAcct(id,d){
 }
 
 /* ================= 到下次發薪前可用的錢 ================= */
-function nextPayday(){
-  const td=today(),t=new Date();let best=null;
-  for(const j of jobs())for(let k=-1;k<=1;k++){
+/* 列出接下來還沒入帳的發薪（往後找幾個月） */
+function upcomingPays(){
+  const td=today(),t=new Date(),out=[];
+  for(const j of jobs())for(let k=-1;k<=3;k++){
     const d=new Date(t.getFullYear(),t.getMonth()+k,1),ymk=`${d.getFullYear()}-${pad(d.getMonth()+1)}`,P=payInfo(j,ymk);
     if(P.tx||P.date<td)continue;
-    if(!best||P.date<best.date)best={date:P.date,job:j,ym:ymk,net:calcJob(j,ymk).net};
+    out.push({date:P.date,job:j,ym:ymk,net:calcJob(j,ymk).net});
   }
-  return best;
+  return out.sort((a,b)=>a.date.localeCompare(b.date));
 }
+function nextPayday(){return upcomingPays()[0]||null}
 function runway(){
-  const np=nextPayday();if(!np)return null;
-  const td=today(),D=np.date,items=[];
+  const td=today(),pays=upcomingPays();if(!pays.length)return null;
+  /* 以正職的發薪日為準；下一次發薪在 7 天內，就直接算「領完這次後撐到再下一次」 */
+  const main=jobs().find(j=>j.kind==='main')||jobs()[0];
+  const mp=pays.filter(x=>x.job.id===main.id);
+  const P1=mp[0]||pays[0];let H=P1.date,mode='until';
+  if(mp.length>1&&(pd(P1.date)-pd(td))/864e5<=7){H=mp[1].date;mode='after'}
+  const incomes=pays.filter(x=>x.date<H);
+  const items=[];
   const cashAccts=db.accounts.filter(a=>!a.excluded&&['cash','bank','epay'].includes(a.type));
   const have=cashAccts.reduce((s,a)=>s+balance(a),0);
-  /* 信用卡：已結帳未繳＋發薪前就要繳的本期 */
+  /* 信用卡：已結帳未繳＋本期＋下一期，只要繳款日在 H 之前（含當天） */
   for(const c of cards()){
     const L=cardLedger(c);
-    for(const x of L.stmts)if(x.remain>0&&(!x.due||x.due<=D))items.push({name:`${c.name} 卡費`,date:x.due||td,amount:x.remain,tag:x.due&&x.due<td?'已逾期':''});
-    if(L.open.due&&L.open.due<=D){const v=Math.max(0,L.open.calc-L.credit);if(v>0)items.push({name:`${c.name} 卡費`,date:L.open.due,amount:v,tag:'累計中'})}
+    for(const x of L.stmts)if(x.remain>0&&(!x.due||x.due<=H))items.push({name:`${c.name} 卡費`,date:x.due||td,amount:x.remain,tag:x.due&&x.due<td?'已逾期':'已結帳'});
+    let credit=L.credit;
+    if(L.open.due&&L.open.due<=H){const v=Math.max(0,L.open.calc-credit);credit=Math.max(0,credit-L.open.calc);if(v>0)items.push({name:`${c.name} 卡費`,date:L.open.due,amount:v,tag:'累計中'})}
+    const e=pd(L.open.end),nx=cycle(c,e.getFullYear(),e.getMonth()+1);
+    if(nx.due&&nx.due<=H){const v=Math.max(0,payable(c,nx.start,nx.end).total-credit);if(v>0)items.push({name:`${c.name} 卡費`,date:nx.due,amount:v,tag:'還沒開始刷'})}
   }
-  /* 貸款 */
-  for(const a of loans())for(const x of lSchedule(a))if(x.date<=D)items.push({name:a.name,date:x.date,amount:x.pay});
-  /* 週期性付款（刷卡的已經算在卡費裡） */
+  for(const a of loans())for(const x of lSchedule(a))if(x.date<=H)items.push({name:a.name,date:x.date,amount:x.pay});
   for(const r of db.recurring){
     const ac=acct(r.accountId);if(!ac||ac.type==='credit'||ac.excluded)continue;
-    for(const d of occurrences(r,addDays(td,1),D))items.push({name:r.name,date:d,amount:r.type==='in'?-r.amount:r.amount});
+    for(const d of occurrences(r,addDays(td,1),H))items.push({name:r.name,date:d,amount:r.type==='in'?-r.amount:r.amount});
   }
   items.sort((a,b)=>a.date.localeCompare(b.date));
-  const owe=items.reduce((s,x)=>s+x.amount,0),days=Math.max(1,Math.round((pd(D)-pd(td))/864e5));
-  const left=have-owe;
-  return {np,have,items,owe,left,days,perDay:left/days,cashAccts};
+  const inc=incomes.reduce((s,x)=>s+x.net,0),owe=items.reduce((s,x)=>s+x.amount,0);
+  const days=Math.max(1,Math.round((pd(H)-pd(td))/864e5)),left=have+inc-owe;
+  return {np:P1,H,mode,have,incomes,inc,items,owe,left,days,perDay:left/days,cashAccts};
 }
 function runwayHTML(){
   if(!jobs().length)return '';
   const R=runway();
   if(!R)return `<div class="card" data-sec="runway" data-name="到下次發薪前可用"><h2>到下次發薪前可用</h2><div class="sub">找不到下一次發薪日，請到「薪資與配置」確認發薪日設定。</div></div>`;
   const open=window.rwOpen;
+  const title=R.mode==='after'?`${md(R.np.date)} 領薪後，撐到 ${md(R.H)}（還有 ${R.days} 天）`:`撐到 ${md(R.H)} 發薪（還有 ${R.days} 天）`;
   return `<div class="card" data-sec="runway" data-name="到下次發薪前可用">
-    <div class="sub">到下次發薪前可用（${md(R.np.date)} ${esc(R.np.job.name)} 發薪，還有 ${R.days} 天）</div>
+    <div class="sub">${title}</div>
     <div class="big num ${R.left<0?'c-out':'c-in'}">${money(R.left)}</div>
-    <div class="subrow num"><span>平均每天 <b>${R.left>0?money(Math.floor(R.perDay)):'$0'}</b></span><span>要先付 <b class="c-out">${money(R.owe)}</b></span></div>
-    ${R.left<0?`<p class="hint" style="color:var(--out);margin:8px 0 0">發薪前要付的錢比手上的多 ${money(-R.left)}，需要先調度。</p>`:''}
+    <div class="subrow num"><span>平均每天 <b>${R.left>0?money(Math.floor(R.perDay)):'$0'}</b></span><span>要付 <b class="c-out">${money(R.owe)}</b></span></div>
+    ${R.left<0?`<p class="hint" style="color:var(--out);margin:8px 0 0">到 ${md(R.H)} 前要付的錢比能用的多 ${money(-R.left)}，需要先調度。</p>`:''}
     <button class="link" style="margin-top:8px" onclick="rwOpen=!rwOpen;render()">${open?'收起明細':'看怎麼算的'}</button>
     ${open?`<div class="brk" style="margin-top:6px">
       <div class="li"><span class="nm"><b>現在手上的錢</b><small>${R.cashAccts.map(a=>`${esc(a.name)} ${money(balance(a))}`).join('・')||'沒有現金／銀行帳戶'}</small></span><span class="num">${money(R.have)}</span></div>
-      ${R.items.map(x=>`<div class="li"><span class="nm">${esc(x.name)}<small>${md(x.date)}${x.tag?`・${x.tag}`:''}</small></span><span class="num ${x.amount>0?'c-out':'c-in'}">${x.amount>0?'-':'+'}${money(Math.abs(x.amount))}</span></div>`).join('')||'<p class="hint">發薪前沒有要付的款項。</p>'}
-      <p class="hint" style="margin-top:6px">只算現金、銀行、電子支付帳戶（不含勾了「不計入」的）。發薪當天到期的也先算進去比較保險。預計入帳 ${money(R.np.net)}。</p></div>`:''}
+      ${R.incomes.map(x=>`<div class="li"><span class="nm">${esc(x.job.name)} 薪水<small>${md(x.date)} 預計入帳（${+x.ym.slice(5)} 月份）${x.net?'':'・還沒填時數，先算 $0'}</small></span><span class="num c-in">+${money(x.net)}</span></div>`).join('')}
+      ${R.items.map(x=>`<div class="li"><span class="nm">${esc(x.name)}<small>${md(x.date)}${x.tag?`・${x.tag}`:''}</small></span><span class="num ${x.amount>0?'c-out':'c-in'}">${x.amount>0?'-':'+'}${money(Math.abs(x.amount))}</span></div>`).join('')||'<p class="hint">這段期間沒有要付的款項。</p>'}
+      <p class="hint" style="margin-top:6px">只算現金、銀行、電子支付帳戶（不含「不計入」的）。${md(R.H)} 當天到期的也先算進去比較保險。下一次發薪在 7 天內時，會直接算到再下一次發薪，並把這次的薪水算進來。</p></div>`:''}
   </div>`;
 }
 
