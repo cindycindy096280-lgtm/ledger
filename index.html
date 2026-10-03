@@ -191,6 +191,8 @@ nav button.t.on svg{color:var(--caramel)}
 .askbox .btn.warn{background:var(--out);box-shadow:none;color:#fff}
 .c-warn{color:#C48A2C}
 #sheet .li select{border:0;background:var(--bg);border-radius:12px;padding:8px 10px;font:inherit;font-size:14px;color:inherit}
+.mv{border:0;background:var(--sand);color:var(--cocoa);border-radius:10px;padding:5px 10px;font-size:13px;margin-left:6px;font-weight:700}
+.mv:disabled{opacity:.3}
 </style>
 </head>
 <body>
@@ -500,17 +502,19 @@ function renderHome(){
   const out=mt.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
   const inc=mt.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
 
-  let h=`<div class="hero">${art()}</div>
-  <div class="card">
+  let h=`<div class="hero" data-sec="hero" data-name="頂部圖片">${art()}</div>
+  <div class="card" data-sec="month" data-name="本月收支與預算">
     <div class="sub">${+thisMonth.slice(5)} 月支出</div>
     <div class="big num c-out">${money(out)}</div>
     <div class="subrow num"><span>收入 <b class="c-in">${money(inc)}</b></span><span>結餘 <b>${money(inc-out)}</b></span></div>
     <div style="margin-top:12px">${budgetHTML(out)}</div>
   </div>`;
 
+  h+=runwayHTML();
+
   // 信用卡：結帳後的待繳款（依繳款日分組）
   const cs=cards(),Ls=cs.map(cardLedger),allUnpaid=Ls.reduce((s,L)=>s+L.unpaid,0);
-  h+=`<div class="card"><h2>信用卡待繳<span><button class="link" onclick="openCardDates()">結帳／繳款日</button>　<button class="link" onclick="openPay()">區間試算</button></span></h2>`;
+  h+=`<div class="card" data-sec="cards" data-name="信用卡待繳"><h2>信用卡待繳<span><button class="link" onclick="openCardDates()">結帳／繳款日</button>　<button class="link" onclick="openPay()">區間試算</button></span></h2>`;
   if(!cs.length)h+=`<div class="sub">還沒有信用卡帳戶。到「帳戶」新增後，結帳後的待繳金額會出現在這裡。</div>`;
   else h+=`<div class="row" style="margin-bottom:4px"><span>所有卡未繳總額</span><b class="num ${allUnpaid>0?'c-out':''}" style="font-size:17px">${money(allUnpaid)}</b></div>`;
   const groups={};
@@ -541,7 +545,7 @@ function renderHome(){
   // 薪資與配置
   if(jobs().length){
     const al=allocCalc(thisMonth),inc=monthIncome(thisMonth);
-    h+=`<button class="card" style="display:block;width:100%;border:0;text-align:left" onclick="cur=new Date();cur.setDate(1);go('pay')">
+    h+=`<button class="card" data-sec="pay" data-name="薪資與配置" style="display:block;width:100%;border:0;text-align:left" onclick="cur=new Date();cur.setDate(1);go('pay')">
       <h2>${+thisMonth.slice(5)} 月預估實收<span class="num c-in">${money(inc.salary+inc.bonus)}</span></h2>
       ${jobs().map(j=>{let P=payInfo(j,thisMonth);
         if(j.payMonth==='next'){const pm=new Date(+thisMonth.slice(0,4),+thisMonth.slice(5)-2,1),pym=`${pm.getFullYear()}-${pad(pm.getMonth()+1)}`,Q=payInfo(j,pym);if(!Q.tx)P=Q}
@@ -549,11 +553,11 @@ function renderHome(){
       <div style="border-top:1px dashed var(--line);margin:8px 0 6px"></div>
       ${al.rows.map(({b,amt,spent})=>`<div class="row" style="padding:3px 0"><span>${esc(b.name)}</span><span class="num">${spent!=null?`${money(spent)} / `:''}${money(amt)}</span></div>`).join('')}
       <div class="sub" style="margin-top:6px">${al.A.fixed&&al.fx.total?`已先保留固定支出 ${money(al.fx.total)}・`:''}點這裡調整</div></button>`;
-  }else h+=`<button class="card" style="display:block;width:100%;border:0;text-align:left" onclick="go('pay')"><h2>薪資與金錢配置<span class="link">設定</span></h2><div class="sub">填入正職和兼職薪資，估算每月實收並分配儲蓄和生活費。</div></button>`;
+  }else h+=`<button class="card" data-sec="pay" data-name="薪資與配置" style="display:block;width:100%;border:0;text-align:left" onclick="go('pay')"><h2>薪資與金錢配置<span class="link">設定</span></h2><div class="sub">填入正職和兼職薪資，估算每月實收並分配儲蓄和生活費。</div></button>`;
 
   // 貸款
   if(loans().length){
-    h+=`<div class="card"><h2>貸款</h2>`+loans().map(a=>{
+    h+=`<div class="card" data-sec="loans" data-name="貸款"><h2>貸款</h2>`+loans().map(a=>{
       const nx=lSchedule(a)[0],bal=lBal(a),done=lNextNo(a)-1,M=a.loan.months;
       const days=nx?Math.round((pd(nx.date)-pd(td))/864e5):0;
       return `<button class="li btn-li" onclick="openLoanView('${a.id}')"><span class="nm">${esc(a.name)}
@@ -566,7 +570,7 @@ function renderHome(){
   const up=[];
   for(const r of db.recurring)for(const d of occurrences(r,addDays(td,1),addDays(td,30)))up.push({r,d});
   up.sort((a,b)=>a.d.localeCompare(b.d));
-  h+=`<div class="card"><h2>30 天內的週期性款項<button class="link" onclick="openRecList()">管理</button></h2>`;
+  h+=`<div class="card" data-sec="rec" data-name="30 天內的週期性款項"><h2>30 天內的週期性款項<button class="link" onclick="openRecList()">管理</button></h2>`;
   h+=up.length?up.slice(0,8).map(({r,d})=>`<div class="li"><span class="nm">${esc(r.name)}<small>${md(d)}・${esc(acctName(r.accountId))}</small></span>
       <span class="num ${r.type==='in'?'c-in':''}">${r.type==='in'?'+':'-'}${money(r.amount)}</span></div>`).join('')
     :`<div class="sub">沒有即將到來的款項。房租、訂閱、保費可以設成週期性付款，時間到會自動記帳。</div>`;
@@ -579,12 +583,13 @@ function renderHome(){
     return {p,done,n:ch.length,left:ch.filter(t=>t.date>td).reduce((s,t)=>s+t.amount,0)};
   }).filter(x=>x.done<x.n);
   if(plans.length){
-    h+=`<div class="card"><h2>分期中</h2>`+plans.map(({p,done,n,left})=>`<button class="li btn-li" onclick="openPlan('${p.id}')">
+    h+=`<div class="card" data-sec="plans" data-name="分期中"><h2>分期中</h2>`+plans.map(({p,done,n,left})=>`<button class="li btn-li" onclick="openPlan('${p.id}')">
       <span class="nm">${esc(p.title)}<small>${esc(acctName(p.accountId))}・已付 ${done}/${n} 期</small>
       <div class="mini"><i style="width:${done/n*100}%"></i></div></span>
       <span class="num" style="text-align:right">${money(left)}<small style="display:block;color:var(--dim);font-size:12px">未付</small></span></button>`).join('')+`</div>`;
   }
-  $('#v-home').innerHTML=h;
+  h+=`<p style="text-align:center;margin:4px 0 0"><button class="link" onclick="openOrder('home')">↕ 調整區塊順序</button></p>`;
+  $('#v-home').innerHTML=h;applyOrder('home');
 }
 
 /* ================= 明細 ================= */
@@ -668,9 +673,9 @@ function renderAccts(){
   let h=`<div class="card"><div class="sub">淨資產（不含未入帳）</div><div class="big num">${money(asset+debt)}</div>
     <div class="subrow num"><span>資產 <b class="c-in">${money(asset)}</b></span><span>負債 <b class="c-out">${money(-debt)}</b></span></div>
     ${exc?`<div class="sub" style="margin-top:6px">另有 ${exc} 個帳戶不計入資產負債</div>`:''}</div>`;
-  for(const type in TYPES){
+  for(const type of typeOrder()){
     let list=db.accounts.filter(a=>a.type===type);if(!list.length)continue;
-    if(type==='credit')list=[...list].sort((x,y)=>((+x.stmtDay||99)-(+y.stmtDay||99))||((+x.dueDay||99)-(+y.dueDay||99)));
+    if(type==='credit'&&lay().cardSort!=='custom')list=[...list].sort((x,y)=>((+x.stmtDay||99)-(+y.stmtDay||99))||((+x.dueDay||99)-(+y.dueDay||99)));
     h+=`<div class="section-t"><h2>${TYPES[type]}</h2>${type==='credit'?`<button class="link" onclick="openPay()">應繳試算</button>`:''}</div>`;
     h+=list.map(a=>{let b=balance(a),fut=0;
       if(type==='credit'){const tot=cardUse(a).bal;fut=b-tot;b=tot}
@@ -678,7 +683,7 @@ function renderAccts(){
         <div class="meta">${type==='loan'?loanMeta(a):type==='credit'?(a.stmtDay?(a.dueDay?`每月 ${a.stmtDay} 日結帳・${dueSame(a)?'當月':'次月'} ${a.dueDay} 日繳款`:`${a.stmtDay} 日結帳・未設最後繳款日`):'尚未設定結帳日'):'餘額'}</div></div>
         <div style="text-align:right"><div class="amt num ${b<0?'c-out':''}">${money(b)}</div>${fut>0?`<div class="meta">含未入帳分期 ${money(fut)}</div>`:''}${type==='credit'?(()=>{const u=cardLedger(a).unpaid;const U=cardUse(a);return `<div class="meta">${u>0?'未繳 '+money(u):'無未繳'}</div>${U.limit?`<div class="meta ${U.avail<0?'c-out':U.pct>=80?'c-warn':''}">可用 ${money(U.avail)}</div>`:''}`})():''}</div></button>`}).join('');
   }
-  h+=`<div class="acts"><button class="btn ghost" style="flex:1" onclick="openAcct()">新增帳戶</button><button class="btn ghost" style="flex:1" onclick="openLoanForm()">新增貸款</button></div>`;
+  h+=`<div class="acts"><button class="btn ghost" style="flex:1" onclick="openAcctOrder()">↕ 排序</button><button class="btn ghost" style="flex:1" onclick="openAcct()">新增帳戶</button><button class="btn ghost" style="flex:1" onclick="openLoanForm()">新增貸款</button></div>`;
   $('#v-accts').innerHTML=h;
 }
 
@@ -688,6 +693,8 @@ function renderSet(){
   <div class="group">
     <button class="set" onclick="editBudget()"><span>每月預算</span><span class="v num">${db.budget?money(db.budget):'未設定'}</span></button>
     <button class="set" onclick="go('pay')"><span>薪資估算與金錢配置</span><span class="v">${db.salary.jobs.length} 份工作</span></button>
+    <button class="set" onclick="openOrder('home')"><span>總覽區塊順序</span><span class="v">›</span></button>
+    <button class="set" onclick="openAcctOrder()"><span>帳戶排列順序</span><span class="v">›</span></button>
     <button class="set" onclick="openRecList()"><span>週期性付款</span><span class="v">${db.recurring.length} 項</span></button>
     <button class="set" onclick="openCardDates()"><span>信用卡結帳日／最後繳款日</span><span class="v">${cards().length} 張</span></button>
     <button class="set" onclick="openPay()"><span>信用卡區間應繳試算</span><span class="v">›</span></button>
@@ -851,6 +858,115 @@ function doImport(){
 
 /* 公開版：不含任何個人資料 */
 function oneTimeFixes(){}
+/* ================= 自訂排列順序 ================= */
+const lay=()=>(db.layout||={});
+function mvArr(arr,i,d){const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]]}
+function mvList(kind,i,d){mvArr(kind==='proj'?db.projects:db.categories[kind],i,d);save();editList(kind);render()}
+function typeOrder(){const all=Object.keys(TYPES),o=(lay().types||[]).filter(t=>all.includes(t));return [...o,...all.filter(t=>!o.includes(t))]}
+/* 依使用者儲存的順序重排畫面上的區塊；新出現的區塊放在原本的位置之後 */
+function applyOrder(view){
+  const box=$('#v-'+view),els=[...box.querySelectorAll(':scope > [data-sec]')];if(els.length<2)return;
+  const o=lay()[view]||[];if(!o.length)return;
+  const rank=el=>{const k=o.indexOf(el.dataset.sec);return k<0?o.length+els.indexOf(el):k};
+  const sorted=[...els].sort((a,b)=>rank(a)-rank(b)),mark=document.createComment('');
+  box.insertBefore(mark,els[0]);sorted.forEach(el=>box.insertBefore(el,mark));mark.remove();
+}
+function openOrder(v){
+  if(view!==v)go(v);
+  drawOrder(v);
+}
+function drawOrder(view){
+  const els=[...$('#v-'+view).querySelectorAll(':scope > [data-sec]')];
+  openSheet(`<h2>調整${view==='home'?'總覽':'薪資與配置'}的順序</h2>
+    <p class="hint">按 ▲ ▼ 移動，改完馬上生效。沒出現的區塊（例如還沒有分期）之後出現時會排在預設位置。</p>
+    ${els.map((el,i)=>`<div class="li"><span class="nm">${el.dataset.name||el.dataset.sec}</span>
+      <button class="mv" ${i?'':'disabled'} onclick="mvSec('${view}',${i},-1)">▲</button><button class="mv" ${i<els.length-1?'':'disabled'} onclick="mvSec('${view}',${i},1)">▼</button></div>`).join('')}
+    <div class="acts"><button class="btn ghost" onclick="delete lay()['${view}'];save();render();drawOrder('${view}')">還原預設</button><button class="btn" onclick="closeSheet()">完成</button></div>`);
+}
+function mvSec(view,i,d){
+  const keys=[...$('#v-'+view).querySelectorAll(':scope > [data-sec]')].map(el=>el.dataset.sec);
+  const old=lay()[view]||[];mvArr(keys,i,d);
+  lay()[view]=[...keys,...old.filter(k=>!keys.includes(k))];save();render();drawOrder(view);
+}
+function openAcctOrder(){
+  const L=lay(),T=typeOrder().filter(t=>db.accounts.some(a=>a.type===t));
+  openSheet(`<h2>帳戶排列順序</h2>
+    <h3 style="margin:4px 0 6px">類別順序</h3>
+    ${T.map((t,i)=>`<div class="li"><span class="nm">${TYPES[t]}</span><button class="mv" ${i?'':'disabled'} onclick="mvType('${t}',-1)">▲</button><button class="mv" ${i<T.length-1?'':'disabled'} onclick="mvType('${t}',1)">▼</button></div>`).join('')}
+    ${T.map(t=>{const list=db.accounts.filter(a=>a.type===t);if(list.length<2)return '';
+      const auto=t==='credit'&&L.cardSort!=='custom';
+      const shown=auto?[...list].sort((x,y)=>((+x.stmtDay||99)-(+y.stmtDay||99))||((+x.dueDay||99)-(+y.dueDay||99))):list;
+      return `<h3 style="margin:16px 0 6px">${TYPES[t]}</h3>
+      ${t==='credit'?`<label class="toggle"><input type="checkbox" ${auto?'checked':''} onchange="lay().cardSort=this.checked?'stmt':'custom';save();render();openAcctOrder()"> 依結帳日自動排序</label>`:''}
+      ${shown.map((a,i)=>`<div class="li"><span class="nm">${esc(a.name)}</span><button class="mv" ${i?'':'disabled'} onclick="mvAcct('${a.id}',-1)">▲</button><button class="mv" ${i<shown.length-1?'':'disabled'} onclick="mvAcct('${a.id}',1)">▼</button></div>`).join('')}`}).join('')}
+    <p class="hint">記帳時選帳戶的下拉選單也會照這個順序。</p>
+    <div class="acts"><button class="btn" onclick="closeSheet()">完成</button></div>`);
+}
+function mvType(t,d){const o=typeOrder();mvArr(o,o.indexOf(t),d);lay().types=o;save();render();openAcctOrder()}
+function mvAcct(id,d){
+  const a=acct(id),L=lay();
+  if(a.type==='credit'&&L.cardSort!=='custom'){
+    /* 第一次手動移動信用卡：先把目前的結帳日順序固定下來 */
+    const cs=db.accounts.filter(x=>x.type==='credit').sort((x,y)=>((+x.stmtDay||99)-(+y.stmtDay||99))||((+x.dueDay||99)-(+y.dueDay||99)));
+    const others=db.accounts.filter(x=>x.type!=='credit');let k=0;
+    db.accounts=db.accounts.map(x=>x.type==='credit'?cs[k++]:x);L.cardSort='custom';
+  }
+  const same=db.accounts.filter(x=>x.type===a.type),i=same.indexOf(a),j=i+d;if(j<0||j>=same.length)return;
+  const ia=db.accounts.indexOf(a),ib=db.accounts.indexOf(same[j]);[db.accounts[ia],db.accounts[ib]]=[db.accounts[ib],db.accounts[ia]];
+  save();render();openAcctOrder();
+}
+
+/* ================= 到下次發薪前可用的錢 ================= */
+function nextPayday(){
+  const td=today(),t=new Date();let best=null;
+  for(const j of jobs())for(let k=-1;k<=1;k++){
+    const d=new Date(t.getFullYear(),t.getMonth()+k,1),ymk=`${d.getFullYear()}-${pad(d.getMonth()+1)}`,P=payInfo(j,ymk);
+    if(P.tx||P.date<td)continue;
+    if(!best||P.date<best.date)best={date:P.date,job:j,ym:ymk,net:calcJob(j,ymk).net};
+  }
+  return best;
+}
+function runway(){
+  const np=nextPayday();if(!np)return null;
+  const td=today(),D=np.date,items=[];
+  const cashAccts=db.accounts.filter(a=>!a.excluded&&['cash','bank','epay'].includes(a.type));
+  const have=cashAccts.reduce((s,a)=>s+balance(a),0);
+  /* 信用卡：已結帳未繳＋發薪前就要繳的本期 */
+  for(const c of cards()){
+    const L=cardLedger(c);
+    for(const x of L.stmts)if(x.remain>0&&(!x.due||x.due<=D))items.push({name:`${c.name} 卡費`,date:x.due||td,amount:x.remain,tag:x.due&&x.due<td?'已逾期':''});
+    if(L.open.due&&L.open.due<=D){const v=Math.max(0,L.open.calc-L.credit);if(v>0)items.push({name:`${c.name} 卡費`,date:L.open.due,amount:v,tag:'累計中'})}
+  }
+  /* 貸款 */
+  for(const a of loans())for(const x of lSchedule(a))if(x.date<=D)items.push({name:a.name,date:x.date,amount:x.pay});
+  /* 週期性付款（刷卡的已經算在卡費裡） */
+  for(const r of db.recurring){
+    const ac=acct(r.accountId);if(!ac||ac.type==='credit'||ac.excluded)continue;
+    for(const d of occurrences(r,addDays(td,1),D))items.push({name:r.name,date:d,amount:r.type==='in'?-r.amount:r.amount});
+  }
+  items.sort((a,b)=>a.date.localeCompare(b.date));
+  const owe=items.reduce((s,x)=>s+x.amount,0),days=Math.max(1,Math.round((pd(D)-pd(td))/864e5));
+  const left=have-owe;
+  return {np,have,items,owe,left,days,perDay:left/days,cashAccts};
+}
+function runwayHTML(){
+  if(!jobs().length)return '';
+  const R=runway();
+  if(!R)return `<div class="card" data-sec="runway" data-name="到下次發薪前可用"><h2>到下次發薪前可用</h2><div class="sub">找不到下一次發薪日，請到「薪資與配置」確認發薪日設定。</div></div>`;
+  const open=window.rwOpen;
+  return `<div class="card" data-sec="runway" data-name="到下次發薪前可用">
+    <div class="sub">到下次發薪前可用（${md(R.np.date)} ${esc(R.np.job.name)} 發薪，還有 ${R.days} 天）</div>
+    <div class="big num ${R.left<0?'c-out':'c-in'}">${money(R.left)}</div>
+    <div class="subrow num"><span>平均每天 <b>${R.left>0?money(Math.floor(R.perDay)):'$0'}</b></span><span>要先付 <b class="c-out">${money(R.owe)}</b></span></div>
+    ${R.left<0?`<p class="hint" style="color:var(--out);margin:8px 0 0">發薪前要付的錢比手上的多 ${money(-R.left)}，需要先調度。</p>`:''}
+    <button class="link" style="margin-top:8px" onclick="rwOpen=!rwOpen;render()">${open?'收起明細':'看怎麼算的'}</button>
+    ${open?`<div class="brk" style="margin-top:6px">
+      <div class="li"><span class="nm"><b>現在手上的錢</b><small>${R.cashAccts.map(a=>`${esc(a.name)} ${money(balance(a))}`).join('・')||'沒有現金／銀行帳戶'}</small></span><span class="num">${money(R.have)}</span></div>
+      ${R.items.map(x=>`<div class="li"><span class="nm">${esc(x.name)}<small>${md(x.date)}${x.tag?`・${x.tag}`:''}</small></span><span class="num ${x.amount>0?'c-out':'c-in'}">${x.amount>0?'-':'+'}${money(Math.abs(x.amount))}</span></div>`).join('')||'<p class="hint">發薪前沒有要付的款項。</p>'}
+      <p class="hint" style="margin-top:6px">只算現金、銀行、電子支付帳戶（不含勾了「不計入」的）。發薪當天到期的也先算進去比較保險。預計入帳 ${money(R.np.net)}。</p></div>`:''}
+  </div>`;
+}
+
 let dlCap;
 if(window.claude&&claude.use)claude.use('downloads').then(d=>{dlCap=d}).catch(()=>{});
 async function exportJSON(){
@@ -1406,9 +1522,10 @@ function calcJob(j,ym){
   const extra=+r.extra||0,deduct=+r.deduct||0;
   const gross=Math.max(0,base-personal-sick+extra);
   const {L,H,P}=jobIns(j);
-  const labor=L?Math.round(L*0.125*0.2):0;
+  const none=gross<=0&&!extra; /* 還沒填時數：先不算扣款，避免出現負數 */
+  const labor=L&&!none?Math.round(L*0.125*0.2):0;
   const deps=Math.min(3,+j.deps||0);
-  const health=H?Math.round(H*0.0517*0.3)*(1+deps):0;
+  const health=H&&!none?Math.round(H*0.0517*0.3)*(1+deps):0;
   const pension=isPart?0:Math.round(P*(+j.pension||0)/100);
   const supp=isPart&&gross>=MINW?Math.round(gross*SUPP):0;
   const taxable=gross-pension;
@@ -1507,28 +1624,55 @@ function fixedCosts(ym){
     if(!v&&sch.length&&z<sch[0].date&&lNextNo(L)===1)v=sch[0].pay;
     loan+=v;
   }
+  const A0=db.salary.alloc||{},useCards=A0.cardBills!==false,cardItems=[];
+  if(useCards){
+    /* 這個月要繳的信用卡帳單：繳款日落在這個月的那一期 */
+    const y=+ym.slice(0,4),m=+ym.slice(5)-1;
+    for(const c of cards()){
+      if(!c.stmtDay||!c.dueDay)continue;
+      for(let k=-2;k<=1;k++){
+        const cy=cycle(c,y,m+k);if(!cy.due||!cy.due.startsWith(ym))continue;
+        const st=db.stmts[skey(c,cy.end)]||{},bank=st.bank!=null&&st.bank!==''?+st.bank:null;
+        const amt=Math.round(bank??payable(c,cy.start,cy.end).total);
+        if(amt>0)cardItems.push({name:c.name,amount:amt,due:cy.due,closed:cy.end<today()});
+      }
+    }
+    cardItems.sort((x,y)=>x.due.localeCompare(y.due));
+  }
+  const cardsTot=cardItems.reduce((s,x)=>s+x.amount,0);
   for(const r of db.recurring){
     if(r.type!=='out'||(r.end&&r.end<a))continue;
+    if(useCards&&acct(r.accountId)?.type==='credit')continue; /* 刷卡的週期性付款已經包含在卡費裡 */
     let k=occurrences(r,a,z).length;
     if(!k&&r.freq==='monthly'&&r.start>z)k=1;
     rec+=k*r.amount;
   }
   const A=db.salary.alloc||{},items=(A.fixedItems||[]).filter(x=>+x.amount>0);
   const other=items.reduce((s,x)=>s+(+x.amount),0);
-  return {loan,rec,other,items,total:loan+rec+other};
+  return {loan,rec,other,items,cards:cardsTot,cardItems,total:loan+rec+other+cardsTot};
 }
 function allocCalc(ym){
   const A=db.salary.alloc||=defaultAlloc(),inc=monthIncome(ym);
-  const base=inc.salary+(A.withBonus?inc.bonus:0),fx=A.fixed?fixedCosts(ym):{loan:0,rec:0,other:0,items:[],total:0};
+  const base=inc.salary+(A.withBonus?inc.bonus:0),fx=A.fixed?fixedCosts(ym):{loan:0,rec:0,other:0,items:[],cards:0,cardItems:[],total:0};
   const remain=Math.max(0,base-fx.total);
   const fxCats=A.fixed?(A.fixedItems||[]).map(x=>x.cat).filter(Boolean):[];
   const mt=db.txs.filter(t=>t.type==='out'&&t.date.startsWith(ym)&&!t.recId&&!t.loanId&&!fxCats.includes(t.category));
   const U=A.round==null?100:+A.round||1;
-  const rows=A.buckets.map(b=>({b,amt:Math.floor(remain*(+b.pct||0)/100/U)*U,
+  /* 入不敷出：固定支出比實收多，或（本月）發薪前的錢不夠付 → 先處理支出，其餘先不分配 */
+  const isNow=ym===today().slice(0,7),rw=isNow&&A.holdShort!==false?runway():null;
+  const shortFix=A.fixed&&base<fx.total,shortRw=!!(rw&&rw.left<0);
+  const hold=A.holdShort!==false&&(shortFix||shortRw);
+  const dist=hold?0:remain;
+  /* 固定支出依到期先後，看實收夠付到哪裡 */
+  const payList=[...fx.cardItems.map(x=>({name:x.name+' 卡費',date:x.due,amount:x.amount})),
+    ...(fx.loan?[{name:'貸款',amount:fx.loan}]:[]),...(fx.rec?[{name:'週期性付款',amount:fx.rec}]:[]),
+    ...fx.items.map(x=>({name:x.name||'固定支出',amount:+x.amount}))];
+  let pool=base;for(const x of payList){x.covered=Math.min(pool,x.amount);pool-=x.covered}
+  const rows=A.buckets.map(b=>({b,amt:Math.floor(dist*(+b.pct||0)/100/U)*U,
     spent:b.cats.length?mt.filter(t=>b.cats.includes(t.category)).reduce((s,t)=>s+t.amount,0):null}));
   const pctSum=A.buckets.reduce((s,b)=>s+(+b.pct||0),0);
-  const rest=pctSum>=100?remain-rows.reduce((s,r)=>s+r.amt,0):0;
-  return {A,base,fx,remain,rows,rest,U};
+  const rest=hold?0:pctSum>=100?remain-rows.reduce((s,r)=>s+r.amt,0):0;
+  return {A,base,fx,remain,rows,rest,U,hold,shortFix,shortRw,rw,payList};
 }
 
 let payOpen={};
@@ -1539,13 +1683,13 @@ function renderPay(){
       <div class="acts" style="justify-content:center"><button class="btn" style="flex:0 0 auto;padding:12px 28px" onclick="openJobForm()">設定薪資</button></div></div>`;return;
   }
   const inc=monthIncome(ym0);
-  let h=`<div class="card"><div class="sub">${m} 月預估實收</div><div class="big num c-in">${money(inc.salary+inc.bonus)}</div>
+  let h=`<div class="card" data-sec="sum" data-name="本月預估實收"><div class="sub">${m} 月預估實收</div><div class="big num c-in">${money(inc.salary+inc.bonus)}</div>
     <div class="subrow num"><span>薪資 <b>${money(inc.salary)}</b></span>${inc.bonus?`<span>獎金 <b>${money(inc.bonus)}</b></span>`:''}</div></div>`;
 
   for(const {j,c} of inc.J){
     const open=payOpen[j.id],r=monthRec(ym0,j.id);
     const line=(n,v,cls='')=>v?`<div class="li"><span class="nm">${n}</span><span class="num ${cls}">${money(v)}</span></div>`:'';
-    h+=`<div class="card"><h2>${esc(j.name)} <span class="tag">${j.kind==='main'?'正職':'兼職'}</span><span style="flex:1"></span><span class="num">${money(c.net)}</span></h2>
+    h+=`<div class="card" data-sec="job:${j.id}" data-name="${esc(j.name)}（${j.kind==='main'?'正職':'兼職'}）"><h2>${esc(j.name)} <span class="tag">${j.kind==='main'?'正職':'兼職'}</span><span style="flex:1"></span><span class="num">${money(c.net)}</span></h2>
       <div class="sub">應發 ${money(c.gross)}・扣除 ${money(c.gross-c.net)}</div>
       ${(()=>{const P=payInfo(j,ym0);return `<div class="banner" style="margin:10px 0 0;display:block">
         <div style="display:flex;justify-content:space-between;gap:8px"><span>預計 ${md(P.exp)} 發薪${j.payMonth==='next'?'（次月發）':''}</span><span class="tag ${P.cls}" style="margin:0">${P.st}</span></div>
@@ -1556,7 +1700,8 @@ function renderPay(){
         ${P.ov&&P.delay>0?`<div class="sub" style="margin-top:4px">比預計晚 ${P.delay} 天</div>`:''}
         ${P.S.noData?`<div class="sub" style="margin-top:4px">還沒有 ${P.S.orig.slice(0,4)} 年國定假日資料，目前只判斷週末（連上網路會自動下載）</div>`:''}</div>`})()}
       <div class="${j.pay==='hourly'?'':'two'}" style="margin-top:12px">
-        ${j.pay==='hourly'?`<div class="f"><label>本月時數</label><input type="number" inputmode="decimal" value="${r.hours??''}" placeholder="${j.hoursDefault||0}" onchange="setMonthVal('${j.id}','hours',this.value)"></div>`
+        ${j.pay==='hourly'?`<div class="f"><label>${cur.getMonth()+1} 月實際工作時數</label><input type="number" inputmode="decimal" value="${r.hours??''}" placeholder="${j.hoursDefault?'預估 '+j.hoursDefault:'還沒填'}" onchange="setMonthVal('${j.id}','hours',this.value)">
+            ${r.hours==null||r.hours===''?`<div class="sub" style="margin-top:4px">${j.hoursDefault?`目前用預估 ${j.hoursDefault} 小時計算，`:'還沒填時數，薪資先算 $0，'}拿到班表或薪資單後填實際時數</div>`:''}</div>`
           :`<div class="f"><label>事假（小時）</label><input type="number" inputmode="decimal" value="${r.personal??''}" placeholder="0" onchange="setMonthVal('${j.id}','personal',this.value)"></div>
             <div class="f"><label>病假（小時）</label><input type="number" inputmode="decimal" value="${r.sick??''}" placeholder="0" onchange="setMonthVal('${j.id}','sick',this.value)"></div>`}
       </div>
@@ -1583,7 +1728,7 @@ function renderPay(){
   // 獎金
   const yr=ym0.slice(0,4),bc=calcBonuses(yr);
   const bl=db.salary.bonuses.filter(b=>b.date.startsWith(yr)&&acctJob(b.jobId)).sort((a,b)=>a.date.localeCompare(b.date));
-  h+=`<div class="card"><h2>${yr} 年終與獎金<button class="link" onclick="openBonusForm()">新增</button></h2>`;
+  h+=`<div class="card" data-sec="bonus" data-name="年終與獎金"><h2>${yr} 年終與獎金<button class="link" onclick="openBonusForm()">新增</button></h2>`;
   const mj=jobs().find(j=>j.kind==='main');
   if(mj){const th=4*jobIns(mj).H,used=bl.filter(b=>b.jobId===mj.id).reduce((s,b)=>s+(+b.amount||0),0);
     h+=`<div class="sub">${esc(mj.name)} 獎金累計 ${money(used)}，免補充保費額度 ${money(th)}（投保金額 × 4）${used<th?`，還剩 ${money(th-used)}`:`，已超過 ${money(used-th)}`}</div>
@@ -1596,21 +1741,28 @@ function renderPay(){
 
   // 配置
   const al=allocCalc(ym0);
-  h+=`<div class="card"><h2>${m} 月金錢配置<button class="link" onclick="openAllocForm()">編輯</button></h2>
+  h+=`<div class="card" data-sec="alloc" data-name="金錢配置"><h2>${m} 月金錢配置<button class="link" onclick="openAllocForm()">編輯</button></h2>
     <div class="row"><span>可分配（實收${al.A.withBonus?'含獎金':'不含獎金'}）</span><b class="num">${money(al.base)}</b></div>
     ${al.A.fixed?`<div class="row"><span>先扣固定支出</span><b class="num c-out">-${money(al.fx.total)}</b></div>
-      <div class="sub" style="margin:-2px 0 6px">${[al.fx.loan?`貸款 ${money(al.fx.loan)}`:'',...al.fx.items.map(x=>`${esc(x.name||'固定支出')} ${money(+x.amount)}`),al.fx.rec?`週期性付款 ${money(al.fx.rec)}`:''].filter(Boolean).join('・')||'還沒有固定支出，可按「編輯」加入房租等'}</div>`:''}
+      <div class="sub" style="margin:-2px 0 6px">${[al.fx.cards?`信用卡費 ${money(al.fx.cards)}`:'',al.fx.loan?`貸款 ${money(al.fx.loan)}`:'',...al.fx.items.map(x=>`${esc(x.name||'固定支出')} ${money(+x.amount)}`),al.fx.rec?`週期性付款 ${money(al.fx.rec)}`:''].filter(Boolean).join('・')||'還沒有固定支出，可按「編輯」加入房租等'}</div>
+      ${al.fx.cardItems.length?`<div class="stmt" style="padding:8px 12px;margin:0 0 8px">${al.fx.cardItems.map(x=>`<div class="row" style="padding:1px 0;font-size:13px"><span>${esc(x.name)} <span class="meta">${md(x.due)} 前繳・${x.closed?'已結帳':'累計中，還會變動'}</span></span><span class="num">${money(x.amount)}</span></div>`).join('')}</div>`:''}`:''}
     <div class="row" style="margin-bottom:6px"><span>剩下可以分配</span><b class="num">${money(al.remain)}</b></div>
-    ${al.base<al.fx.total?`<p class="hint" style="color:var(--out)">固定支出比實收還多 ${money(al.fx.total-al.base)}，這個月需要動用存款。</p>`:''}
+    ${al.hold?`<div class="stmt" style="border:1.5px solid var(--out);margin:4px 0 10px">
+      <b style="color:var(--out)">這個月入不敷出，先處理支出，其餘先不分配</b>
+      ${al.shortFix?`<div class="sub" style="margin-top:4px">固定支出比實收多 ${money(al.fx.total-al.base)}。依到期順序，實收夠付到：</div>
+        ${al.payList.map(x=>`<div class="row" style="padding:2px 0;font-size:13px"><span>${esc(x.name)}${x.date?` <span class="meta">${md(x.date)}</span>`:''}</span>
+          <span class="num ${x.covered<x.amount?'c-out':''}">${x.covered>=x.amount?'✓ '+money(x.amount):x.covered>0?`只夠 ${money(x.covered)}，差 ${money(x.amount-x.covered)}`:`不夠 ${money(x.amount)}`}</span></div>`).join('')}`:''}
+      ${al.shortRw?`<div class="sub" style="margin-top:4px">發薪前要付的錢比手上多 ${money(-al.rw.left)}${al.shortFix?'':`；這次實收扣完固定支出還有 ${money(al.remain)}，先留著補這個缺口`}。</div>`:''}
+      <div class="sub" style="margin-top:4px">儲蓄、娛樂等項目這個月先不分配，等收支打平再自動恢復。</div></div>`:''}
     ${al.rows.map(({b,amt,spent})=>`<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>${esc(b.name)} <span class="sub">${b.pct}%</span></span><b class="num">${money(amt)}</b></div>
       ${spent!=null?`<div class="bar" style="height:8px;margin:6px 0 2px"><i class="${spent>amt?'over':''}" style="width:${amt?Math.min(100,spent/amt*100):spent?100:0}%"></i></div>
         <div class="sub">已花 ${money(spent)}${amt-spent>=0?`・還剩 ${money(amt-spent)}`:`・超出 ${money(spent-amt)}`}</div>`
       :b.save?`<button class="sbtn" style="margin-top:6px" onclick="saveTransfer(${amt})">記一筆轉到儲蓄帳戶</button>`:''}</div>`).join('')}
     ${al.rest>0?`<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>零頭 <span class="sub">取整數後剩下的</span></span><b class="num">${money(al.rest)}</b></div><div class="sub">留在帳戶當緩衝就好</div></div>`:''}
     <div class="acts"><button class="btn ghost" style="flex:1" onclick="applyAllocBudget()">把消費類別設成每月預算</button></div></div>`;
-  h+=`<div class="acts" style="margin-top:0"><button class="btn ghost" style="flex:1" onclick="openJobList()">薪資設定</button></div>
+  h+=`<div class="acts" style="margin-top:0"><button class="btn ghost" style="flex:1" onclick="openJobList()">薪資設定</button><button class="btn ghost" style="flex:1" onclick="openOrder('pay')">↕ 調整順序</button></div>
     <p class="hint" style="margin-top:12px">依 2026 年勞健保級距與費率估算，實際以公司薪資單為準。</p>`;
-  $('#v-pay').innerHTML=h;
+  $('#v-pay').innerHTML=h;applyOrder('pay');
 }
 async function setPayDate(id,v){
   const j=acctJob(id),ym0=ym(),M=db.salary.months[ym0]||={},r=M[id]||={};
@@ -1674,7 +1826,8 @@ function drawJob(){
     <div class="f"><label>名稱</label><input id="jn" value="${esc(j.name)}"></div>
     <div class="seg"><button class="${j.pay!=='hourly'?'on':''}" onclick="syncJob();jdraft.pay='monthly';drawJob()">月薪</button><button class="${j.pay==='hourly'?'on':''}" onclick="syncJob();jdraft.pay='hourly';drawJob()">時薪</button></div>
     ${j.pay==='hourly'?`<div class="two"><div class="f"><label>時薪</label><input id="jh" type="number" inputmode="decimal" value="${j.hourly}" placeholder="196" onchange="syncJob();drawJob()"></div>
-        <div class="f"><label>每月大約時數</label><input id="jhd" type="number" inputmode="decimal" value="${j.hoursDefault}" onchange="syncJob();drawJob()"></div></div>`
+        <div class="f"><label>平常每月時數（選填）</label><input id="jhd" type="number" inputmode="decimal" value="${j.hoursDefault}" placeholder="不固定可留空" onchange="syncJob();drawJob()"></div></div>
+        <p class="hint" style="margin-top:-4px">時數每個月不一樣沒關係：到「薪資與配置」頁，在這份工作下面的「本月時數」填實際做了幾小時，每個月分開算。這裡填的只是還沒填實際時數時的預估。</p>`
       :`<div class="f"><label>月薪總額（本薪＋固定津貼）</label><input id="ja" type="number" inputmode="numeric" value="${j.amount}" onchange="syncJob();drawJob()"></div>`}
     ${isPart?`<label class="toggle"><input type="checkbox" id="jle" ${j.laborEnroll?'checked':''} onchange="syncJob();drawJob()"> 這份兼職有幫我保勞保</label>`:''}
     <div class="two">
@@ -1755,7 +1908,10 @@ function drawAlloc(){
         <div class="f" style="margin:0"><label>每月金額</label><input class="fa" type="number" inputmode="numeric" value="${x.amount}"></div>
         <button class="x" aria-label="移除" onclick="syncAlloc();adraft.fixedItems.splice(${i},1);drawAlloc()">✕</button>
         <div class="f" style="margin:0;grid-column:1/3"><label>記帳時用的分類（選填，這類支出就不會再算進消費）</label><select class="fc"><option value="">不指定</option>${db.categories.out.map(c=>`<option ${x.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div></div>`).join('')}
-      <button class="link" onclick="syncAlloc();(adraft.fixedItems||=[]).push({name:'',amount:'',cat:''});drawAlloc()">＋ 新增固定支出</button></div>`:''}
+      <button class="link" onclick="syncAlloc();(adraft.fixedItems||=[]).push({name:'',amount:'',cat:''});drawAlloc()">＋ 新增固定支出</button>
+      <label class="toggle" style="margin:10px 0 0"><input type="checkbox" ${A.holdShort!==false?'checked':''} onchange="syncAlloc();adraft.holdShort=this.checked"> 入不敷出時先處理支出，其餘先不分配</label>
+      <label class="toggle" style="margin:10px 0 0"><input type="checkbox" ${A.cardBills!==false?'checked':''} onchange="syncAlloc();adraft.cardBills=this.checked"> 先扣這個月要繳的信用卡費</label>
+      <p class="hint" style="margin:4px 0 0">依每張卡的繳款日，把這個月到期的帳單先留下來；刷卡的訂閱、分期已經在卡費裡，不會重複扣。</p></div>`:''}
     <label class="toggle" style="margin-top:-4px"><input type="checkbox" ${A.withBonus?'checked':''} onchange="syncAlloc();adraft.withBonus=this.checked"> 當月有獎金時一起分配</label>
     <div class="f"><label>分配金額取整數</label><select onchange="syncAlloc();adraft.round=+this.value">${[[1,'不取整（算到個位數）'],[100,'取到百位（例：13,500）'],[500,'取到 500（例：13,500）'],[1000,'取到千位（例：13,000）']].map(([v,t])=>`<option value="${v}" ${(adraft.round==null?100:+adraft.round)===v?'selected':''}>${t}</option>`).join('')}</select></div>
     ${A.buckets.map((b,i)=>`<div class="stmt" data-b="${i}">
@@ -1763,6 +1919,7 @@ function drawAlloc(){
         <div class="f" style="margin:0"><label>名稱</label><input class="an" value="${esc(b.name)}"></div>
         <div class="f" style="margin:0"><label>比例 %</label><input class="ap" type="number" inputmode="numeric" value="${b.pct}" onchange="syncAlloc();drawAlloc()"></div>
         <button class="x" aria-label="移除" onclick="syncAlloc();adraft.buckets.splice(${i},1);drawAlloc()">✕</button></div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px"><button class="mv" ${i?'':'disabled'} onclick="syncAlloc();mvArr(adraft.buckets,${i},-1);drawAlloc()">▲ 上移</button><button class="mv" ${i<A.buckets.length-1?'':'disabled'} onclick="syncAlloc();mvArr(adraft.buckets,${i},1);drawAlloc()">▼ 下移</button></div>
       <div class="sub" style="margin:8px 0 4px">${b.save?'儲蓄類：不追蹤花費，提供轉帳按鈕':'對應的支出分類（用來算已花多少）'}</div>
       ${b.save?`<button class="sbtn" onclick="syncAlloc();adraft.buckets[${i}].save=false;drawAlloc()">改成消費類</button>`
         :`<div class="chips" style="flex-wrap:wrap;margin:0">${db.categories.out.map(c=>`<button class="chip ${b.cats.includes(c)?'on':''}" onclick="syncAlloc();togAllocCat(${i},'${esc(c)}')">${esc(c)}</button>`).join('')}</div>
@@ -1916,7 +2073,7 @@ function editList(kind){
   const title={out:'支出分類',in:'收入分類',proj:'專案'}[kind];
   const items=kind==='proj'?db.projects.map(p=>p.name):db.categories[kind];
   openSheet(`<h2>${title}</h2><div>
-    ${items.length?items.map((n,i)=>`<div class="li"><span class="nm">${esc(n)}</span><button class="x" onclick="rmItem('${kind}',${i})">移除</button></div>`).join('')
+    ${items.length?items.map((n,i)=>`<div class="li"><span class="nm">${esc(n)}</span><button class="mv" ${i?'':'disabled'} onclick="mvList('${kind}',${i},-1)">▲</button><button class="mv" ${i<items.length-1?'':'disabled'} onclick="mvList('${kind}',${i},1)">▼</button><button class="x" onclick="rmItem('${kind}',${i})">移除</button></div>`).join('')
       :`<p class="hint">還沒有專案。例如「日本旅遊」「裝潢」，記帳時就能標記。</p>`}</div>
     <div class="addrow"><input id="ni" placeholder="新增${kind==='proj'?'專案':'分類'}名稱"><button onclick="addItem('${kind}')">新增</button></div>
     <div class="acts"><button class="btn" onclick="closeSheet()">完成</button></div>`);
