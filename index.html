@@ -922,8 +922,10 @@ function upcomingPays(){
   const td=today(),t=new Date(),out=[];
   for(const j of jobs())for(let k=-1;k<=3;k++){
     const d=new Date(t.getFullYear(),t.getMonth()+k,1),ymk=`${d.getFullYear()}-${pad(d.getMonth()+1)}`,P=payInfo(j,ymk);
-    if(P.tx||P.date<td)continue;
-    out.push({date:P.date,job:j,ym:ymk,net:calcJob(j,ymk).net});
+    /* 已經入帳（記帳日期在今天以前）才算收到；先記了未來日期的，仍當作還沒入帳 */
+    if(P.tx&&P.tx.date<=td)continue;
+    const date=P.tx?P.tx.date:P.date;if(date<td)continue;
+    out.push({date,job:j,ym:ymk,net:P.tx?P.tx.amount:calcJob(j,ymk).net});
   }
   return out.sort((a,b)=>a.date.localeCompare(b.date));
 }
@@ -956,7 +958,14 @@ function runway(){
   items.sort((a,b)=>a.date.localeCompare(b.date));
   const inc=incomes.reduce((s,x)=>s+x.net,0),owe=items.reduce((s,x)=>s+x.amount,0);
   const days=Math.max(1,Math.round((pd(H)-pd(td))/864e5)),left=have+inc-owe;
-  return {np:P1,H,mode,have,incomes,inc,items,owe,left,days,perDay:left/days,cashAccts};
+  const bad=cashAccts.filter(a=>balance(a)<0);
+  /* 照日期一筆一筆算餘額，找出錢最不夠的那一刻：補這個數字就不會出現付不出來的時候 */
+  const ev=[...incomes.map(x=>({date:x.date,v:x.net,name:x.job.name+' 薪水',inc:1})),...items.map(x=>({date:x.date,v:-x.amount,name:x.name,inc:0}))]
+    .sort((a,b)=>a.date.localeCompare(b.date)||b.inc-a.inc);
+  let run=have,low=have,lowAt=null,firstNeg=have<0?{date:td,name:'現在'}:null;
+  for(const e of ev){run+=e.v;if(run<0&&!firstNeg)firstNeg=e;if(run<low){low=run;lowAt=e}}
+  const need=Math.max(0,-low);
+  return {np:P1,H,mode,have,incomes,inc,items,owe,left,days,perDay:left/days,cashAccts,bad,need,firstNeg,lowAt};
 }
 function runwayHTML(){
   if(!jobs().length)return '';
@@ -966,9 +975,14 @@ function runwayHTML(){
   const title=R.mode==='after'?`${md(R.np.date)} 領薪後，撐到 ${md(R.H)}（還有 ${R.days} 天）`:`撐到 ${md(R.H)} 發薪（還有 ${R.days} 天）`;
   return `<div class="card" data-sec="runway" data-name="到下次發薪前可用">
     <div class="sub">${title}</div>
-    <div class="big num ${R.left<0?'c-out':'c-in'}">${money(R.left)}</div>
-    <div class="subrow num"><span>平均每天 <b>${R.left>0?money(Math.floor(R.perDay)):'$0'}</b></span><span>要付 <b class="c-out">${money(R.owe)}</b></span></div>
-    ${R.left<0?`<p class="hint" style="color:var(--out);margin:8px 0 0">到 ${md(R.H)} 前要付的錢比能用的多 ${money(-R.left)}，需要先調度。</p>`:''}
+    ${R.need>0?`<div class="sub" style="margin-top:6px;color:var(--out);font-weight:700">發薪前還要補</div>
+      <div class="big num c-out">${money(R.need)}</div>
+      <div class="sub" style="margin-top:2px">${R.firstNeg.name==='現在'?'現在帳戶就已經不夠，要先補進去':`最晚 <b>${md(R.firstNeg.date)}</b> 前要補進去（${esc(R.firstNeg.name)}那天開始不夠付）`}</div>`
+    :`<div class="sub" style="margin-top:6px;color:var(--in);font-weight:700">不用補錢，發薪前還能用</div>
+      <div class="big num c-in">${money(R.left)}</div>`}
+    <div class="subrow num"><span>平均每天 <b>${R.left>0?money(Math.floor(R.perDay)):'$0'}</b></span><span>這段期間要付 <b class="c-out">${money(R.owe)}</b></span></div>
+    ${R.bad.length?`<p class="hint" style="margin:8px 0 0;color:var(--out)">⚠️ 手上的錢可能不準：${R.bad.map(a=>`${esc(a.name)} ${money(balance(a))}`).join('、')}。請到「帳戶」點進去，把「現在實際餘額」改成正確數字，這裡才算得準。</p>`
+      :R.need>0&&R.left>=0?`<p class="hint" style="margin:8px 0 0">雖然到 ${md(R.H)} 總數夠用，但中間有幾天會先不夠付（薪水比扣款晚到），所以要先補 ${money(R.need)}，領薪後就會回來。</p>`:''}
     <button class="link" style="margin-top:8px" onclick="rwOpen=!rwOpen;render()">${open?'收起明細':'看怎麼算的'}</button>
     ${open?`<div class="brk" style="margin-top:6px">
       <div class="li"><span class="nm"><b>現在手上的錢</b><small>${R.cashAccts.map(a=>`${esc(a.name)} ${money(balance(a))}`).join('・')||'沒有現金／銀行帳戶'}</small></span><span class="num">${money(R.have)}</span></div>
@@ -1683,7 +1697,7 @@ function allocCalc(ym){
   const U=A.round==null?100:+A.round||1;
   /* 入不敷出：固定支出比實收多，或（本月）發薪前的錢不夠付 → 先處理支出，其餘先不分配 */
   const isNow=ym===today().slice(0,7),rw=isNow&&A.holdShort!==false?runway():null;
-  const shortFix=A.fixed&&base<fx.total,shortRw=!!(rw&&rw.left<0);
+  const shortFix=A.fixed&&base<fx.total,shortRw=!!(rw&&rw.need>0);
   const hold=A.holdShort!==false&&(shortFix||shortRw);
   const dist=hold?0:remain;
   /* 固定支出依到期先後，看實收夠付到哪裡 */
@@ -1776,7 +1790,8 @@ function renderPay(){
       ${al.shortFix?`<div class="sub" style="margin-top:4px">固定支出比實收多 ${money(al.fx.total-al.base)}。依到期順序，實收夠付到：</div>
         ${al.payList.map(x=>`<div class="row" style="padding:2px 0;font-size:13px"><span>${esc(x.name)}${x.date?` <span class="meta">${md(x.date)}</span>`:''}</span>
           <span class="num ${x.covered<x.amount?'c-out':''}">${x.covered>=x.amount?'✓ '+money(x.amount):x.covered>0?`只夠 ${money(x.covered)}，差 ${money(x.amount-x.covered)}`:`不夠 ${money(x.amount)}`}</span></div>`).join('')}`:''}
-      ${al.shortRw?`<div class="sub" style="margin-top:4px">發薪前要付的錢比手上多 ${money(-al.rw.left)}${al.shortFix?'':`；這次實收扣完固定支出還有 ${money(al.remain)}，先留著補這個缺口`}。</div>`:''}
+      ${al.shortFix?`<div class="sub" style="margin-top:6px">這 ${money(al.fx.total-al.base)} 是「這個月收入不夠付固定支出」的差距。</div>`:''}
+      ${al.shortRw?`<div class="sub" style="margin-top:4px">實際還要補多少錢，看總覽的「撐到 ${md(al.rw.H)}」：${al.rw.bad.length?'帳戶餘額還沒校正，先校正才準。':`要補 <b>${money(al.rw.need)}</b>（已經把手上的錢和這段期間的收入都算進去）。`}</div>`:''}
       <div class="sub" style="margin-top:4px">儲蓄、娛樂等項目這個月先不分配，等收支打平再自動恢復。</div></div>`:''}
     ${al.rows.map(({b,amt,spent})=>`<div class="li" style="display:block"><div style="display:flex;justify-content:space-between"><span>${esc(b.name)} <span class="sub">${b.pct}%</span></span><b class="num">${money(amt)}</b></div>
       ${spent!=null?`<div class="bar" style="height:8px;margin:6px 0 2px"><i class="${spent>amt?'over':''}" style="width:${amt?Math.min(100,spent/amt*100):spent?100:0}%"></i></div>
@@ -1803,7 +1818,8 @@ function setMonthVal(id,k,v){
 async function recordSalary(id){
   const j=acctJob(id),ym0=ym(),c=calcJob(j,ym0),key=ym0+'|'+id;
   if(!j.accountId||!acct(j.accountId))return toast('請先在薪資設定選好入帳帳戶');
-  const old=db.txs.find(t=>t.salaryKey===key);
+  const old=db.txs.find(t=>t.salaryKey===key),pdate=payInfo(j,ym0).date;
+  if(!old&&pdate>today()&&!await ask(`這是 ${cur.getMonth()+1} 月份的薪水，預計 ${md(pdate)} 才會入帳。\n\n確定要現在先記嗎？（會先顯示「未入帳」，到 ${md(pdate)} 才算進餘額）\n\n如果你要記的是剛領到的薪水，請按「取消」，切到上一個月再記。`,'先記起來','取消'))return;
   if(old&&!await ask(`這個月已經記過 ${money(old.amount)}，要改成 ${money(c.net)} 嗎？`))return;
   if(!db.categories.in.includes('薪資'))db.categories.in.unshift('薪資');
   const t={id:old?.id||uid(),ts:Date.now(),type:'in',amount:c.net,accountId:j.accountId,toAccountId:'',category:'薪資',projectId:'',
@@ -2035,6 +2051,8 @@ function openAcct(id){
       <div class="f" style="grid-column:1/-1"><label>結帳日當天的消費</label><select id="aex2" onchange="acctPrev()">
         <option value="0" ${a.stmtExcl?'':'selected'}>算進這一期</option><option value="1" ${a.stmtExcl?'selected':''}>算到下一期</option></select></div>
       <div class="f" style="grid-column:1/-1"><label>信用額度（選填）</label><input id="alim" type="number" inputmode="numeric" value="${a.limit||''}" placeholder="例：100000"></div></div>
+    ${id&&a.type!=='credit'&&a.type!=='loan'?`<div class="f"><label>現在實際餘額</label><input id="anow" type="number" inputmode="decimal" class="num" value="${balance(a)}" data-orig="${balance(a)}">
+      <p class="hint" style="margin-top:4px">打開銀行 App 或數一下錢包，填現在真正的數字，App 會自動校正。之前的記錄都不會改。</p></div>`:''}
     <div class="f"><label>初始餘額（信用卡欠款請填負數）</label><input id="ai" type="number" inputmode="decimal" class="num" value="${a.init}"></div>
     <label class="toggle"><input type="checkbox" id="aex" ${a.excluded?'checked':''}> 不計入資產負債</label>
     <p class="hint" style="margin-top:-6px">例如代管的錢、公司的卡。餘額和收支照常記錄，只是不算進淨資產。</p>
@@ -2071,7 +2089,9 @@ function saveCardDates(){
 function saveAcct(id){
   const name=$('#an').value.trim();if(!name)return toast('請輸入帳戶名稱');
   const clamp=v=>{const n=parseInt(v);return n>=1&&n<=31?n:''};
-  const data={name,type:$('#at').value,init:parseFloat($('#ai').value)||0,stmtDay:clamp($('#asd').value),dueDay:clamp($('#add').value),dueMonth:$('#adm').value,limit:parseFloat($('#alim').value)>0?parseFloat($('#alim').value):0,stmtExcl:$('#aex2').value==='1',excluded:$('#aex').checked};
+  let init=parseFloat($('#ai').value)||0;
+  const nw=$('#anow');if(nw&&nw.value!==''&&nw.value!==nw.dataset.orig)init+=(parseFloat(nw.value)||0)-(+nw.dataset.orig);
+  const data={name,type:$('#at').value,init,stmtDay:clamp($('#asd').value),dueDay:clamp($('#add').value),dueMonth:$('#adm').value,limit:parseFloat($('#alim').value)>0?parseFloat($('#alim').value):0,stmtExcl:$('#aex2').value==='1',excluded:$('#aex').checked};
   if(id)Object.assign(acct(id),data);else db.accounts.push({id:uid(),...data});
   save();closeSheet();render();toast('已儲存帳戶');
 }
