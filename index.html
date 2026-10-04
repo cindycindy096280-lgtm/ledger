@@ -975,15 +975,17 @@ function runwayHTML(){
   const title=R.mode==='after'?`${md(R.np.date)} 領薪後，撐到 ${md(R.H)}（還有 ${R.days} 天）`:`撐到 ${md(R.H)} 發薪（還有 ${R.days} 天）`;
   return `<div class="card" data-sec="runway" data-name="到下次發薪前可用">
     <div class="sub">${title}</div>
-    ${R.need>0?`<div class="sub" style="margin-top:6px;color:var(--out);font-weight:700">發薪前還要補</div>
+    ${R.bad.length?`<div class="sub" style="margin-top:6px;color:var(--out);font-weight:700">先校正帳戶餘額，才算得出要補多少</div>
+      <div class="sub" style="margin-top:4px">${R.bad.map(a=>`<button class="link" onclick="openAcct('${a.id}')">${esc(a.name)} 目前是 ${money(balance(a))}，點這裡校正 ›</button>`).join('<br>')}</div>`
+    :R.need>0?`<div class="sub" style="margin-top:6px;color:var(--out);font-weight:700">發薪前還要補</div>
       <div class="big num c-out">${money(R.need)}</div>
       <div class="sub" style="margin-top:2px">${R.firstNeg.name==='現在'?'現在帳戶就已經不夠，要先補進去':`最晚 <b>${md(R.firstNeg.date)}</b> 前要補進去（${esc(R.firstNeg.name)}那天開始不夠付）`}</div>`
     :`<div class="sub" style="margin-top:6px;color:var(--in);font-weight:700">不用補錢，發薪前還能用</div>
       <div class="big num c-in">${money(R.left)}</div>`}
     <div class="subrow num"><span>平均每天 <b>${R.left>0?money(Math.floor(R.perDay)):'$0'}</b></span><span>這段期間要付 <b class="c-out">${money(R.owe)}</b></span></div>
-    ${R.bad.length?`<p class="hint" style="margin:8px 0 0;color:var(--out)">⚠️ 手上的錢可能不準：${R.bad.map(a=>`${esc(a.name)} ${money(balance(a))}`).join('、')}。請到「帳戶」點進去，把「現在實際餘額」改成正確數字，這裡才算得準。</p>`
+    ${R.bad.length?`<p class="hint" style="margin:8px 0 0">帳戶餘額不可能是負數，通常是還沒填實際餘額，或某筆支出記錯帳戶。把「現在實際餘額」改成正確數字後，這裡就會直接告訴你要補多少。</p>`
       :R.need>0&&R.left>=0?`<p class="hint" style="margin:8px 0 0">雖然到 ${md(R.H)} 總數夠用，但中間有幾天會先不夠付（薪水比扣款晚到），所以要先補 ${money(R.need)}，領薪後就會回來。</p>`:''}
-    <button class="link" style="margin-top:8px" onclick="rwOpen=!rwOpen;render()">${open?'收起明細':'看怎麼算的'}</button>
+    <button class="link" style="margin-top:8px" onclick="window.rwOpen=!window.rwOpen;render()">${open?'收起明細':'看怎麼算的'}</button>
     ${open?`<div class="brk" style="margin-top:6px">
       <div class="li"><span class="nm"><b>現在手上的錢</b><small>${R.cashAccts.map(a=>`${esc(a.name)} ${money(balance(a))}`).join('・')||'沒有現金／銀行帳戶'}</small></span><span class="num">${money(R.have)}</span></div>
       ${R.incomes.map(x=>`<div class="li"><span class="nm">${esc(x.job.name)} 薪水<small>${md(x.date)} 預計入帳（${+x.ym.slice(5)} 月份）${x.net?'':'・還沒填時數，先算 $0'}</small></span><span class="num c-in">+${money(x.net)}</span></div>`).join('')}
