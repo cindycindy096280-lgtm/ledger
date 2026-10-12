@@ -691,7 +691,7 @@ function renderAccts(){
     h+=`<div class="section-t"><h2>${TYPES[type]}</h2>${type==='credit'?`<button class="link" onclick="openPay()">應繳試算</button>`:''}</div>`;
     h+=list.map(a=>{let b=balance(a),fut=0;
       if(type==='credit'){const tot=cardUse(a).bal;fut=b-tot;b=tot}
-      return `<button class="acct" onclick="${type==='credit'?`openCard('${a.id}')`:type==='loan'?`openLoanView('${a.id}')`:`openAcct('${a.id}')`}"><div class="mid"><div>${esc(a.name)}${a.excluded?'<span class="tag pend">不計入</span>':''}</div>
+      return `<button class="acct" onclick="${type==='credit'?`openCard('${a.id}')`:type==='loan'?`openLoanView('${a.id}')`:`openAcctView('${a.id}')`}"><div class="mid"><div>${esc(a.name)}${a.excluded?'<span class="tag pend">不計入</span>':''}</div>
         <div class="meta">${type==='loan'?loanMeta(a):type==='credit'?(a.stmtDay?(a.dueDay?`每月 ${a.stmtDay} 日結帳・${dueSame(a)?'當月':'次月'} ${a.dueDay} 日繳款`:`${a.stmtDay} 日結帳・未設最後繳款日`):'尚未設定結帳日'):'餘額'}</div></div>
         <div style="text-align:right"><div class="amt num ${b<0?'c-out':''}">${money(b)}</div>${fut>0?`<div class="meta">含未入帳分期 ${money(fut)}</div>`:''}${type==='credit'?(()=>{const u=cardLedger(a).unpaid;const U=cardUse(a);return `<div class="meta">${u>0?'未繳 '+money(u):'無未繳'}</div>${U.limit?`<div class="meta ${U.avail<0?'c-out':U.pct>=80?'c-warn':''}">可用 ${money(U.avail)}</div>`:''}`})():''}</div></button>`}).join('');
   }
@@ -1922,6 +1922,49 @@ async function delJar(id){
   if(!await ask(`刪除存錢罐「${j.name}」和它的 ${j.entries.length} 筆紀錄？${j.entries.some(e=>e.txId)?'\n\n一起記的轉帳會保留在明細，不會刪除。':''}`))return;
   db.jars=db.jars.filter(x=>x.id!==id);save();closeSheet();render();toast('已刪除');
 }
+
+/* ================= 帳戶明細（銀行、現金、電子支付） ================= */
+let avId,avYm,avQ='';
+function acctFlow(a){
+  /* 每一筆對這個帳戶的影響（+ 進、- 出），照日期排序並算出每筆之後的餘額 */
+  const td=today(),rows=[];
+  for(const t of db.txs){
+    let v=0,other='';
+    if(t.type==='out'&&t.accountId===a.id)v=-t.amount;
+    else if(t.type==='in'&&t.accountId===a.id)v=t.amount;
+    else if(t.type==='move'&&t.accountId===a.id){v=-t.amount;other=acctName(t.toAccountId)}
+    else if(t.type==='move'&&t.toAccountId===a.id){v=t.amount;other=acctName(t.accountId)}
+    if(v)rows.push({t,v,other,future:t.date>td});
+  }
+  rows.sort((x,y)=>x.t.date.localeCompare(y.t.date)||(x.t.ts||0)-(y.t.ts||0));
+  let b=+a.init||0;for(const r of rows){if(!r.future)b+=r.v;r.bal=b}
+  return rows;
+}
+function openAcctView(id){avId=id;avYm=today().slice(0,7);avQ='';openSheet('');drawAcctView()}
+function drawAcctView(){
+  const a=acct(avId);if(!a)return closeSheet();
+  const all=acctFlow(a),q=avQ.trim().toLowerCase();
+  const inM=all.filter(r=>r.t.date.startsWith(avYm));
+  const list=(q?all.filter(r=>`${r.t.note} ${r.t.category} ${r.other}`.toLowerCase().includes(q)):inM).slice().reverse();
+  const inc=inM.filter(r=>r.v>0&&!r.future).reduce((s,r)=>s+r.v,0),out=inM.filter(r=>r.v<0&&!r.future).reduce((s,r)=>s-r.v,0);
+  const [y,m]=avYm.split('-').map(Number);
+  const nav=k=>{const d=new Date(y,m-1+k,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`};
+  $('#sheet').innerHTML=`<div class="grip"></div><h2>${esc(a.name)}</h2>
+    <div class="total-box"><div class="sub">目前餘額</div><div class="big num ${balance(a)<0?'c-out':''}">${money(balance(a))}</div>
+      <div class="acts" style="justify-content:center"><button class="btn" style="flex:0 0 auto;padding:10px 22px" onclick="openTxFor('${a.id}')">記一筆</button><button class="btn ghost" onclick="openAcct('${a.id}')">帳戶設定</button></div></div>
+    <div class="f"><input id="avq" value="${esc(avQ)}" placeholder="搜尋備註、分類或對方帳戶" oninput="avQ=this.value;clearTimeout(window._avt);window._avt=setTimeout(()=>{drawAcctView();const e=$('#avq');e.focus();e.setSelectionRange(e.value.length,e.value.length)},300)"></div>
+    ${q?`<div class="sub" style="margin-bottom:8px">搜尋全部月份，找到 ${list.length} 筆</div>`:`<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 8px">
+      <button class="link" onclick="avYm='${nav(-1)}';drawAcctView()">‹ 上個月</button><b>${y} 年 ${m} 月</b><button class="link" onclick="avYm='${nav(1)}';drawAcctView()">下個月 ›</button></div>
+      <div class="subrow num" style="margin-bottom:8px"><span>流入 <b class="c-in">${money(inc)}</b></span><span>流出 <b class="c-out">${money(out)}</b></span></div>`}
+    ${list.length?`<div class="brk">${list.map(r=>{const t=r.t,tag=t.instId?'分期':t.recId?'週期':t.loanId?'貸款':t.jarId?'存錢罐':t.salaryKey?'薪資':'';
+      return `<div class="li" onclick="openTx('${t.id}')" style="cursor:pointer"><span class="nm">${esc(t.type==='move'?(r.v<0?`轉到 ${r.other}`:`從 ${r.other} 轉入`):(t.note||t.category))}${tag?` <span class="tag">${tag}</span>`:''}${r.future?' <span class="tag pend">未到</span>':''}
+        <small>${md(t.date)}${t.type!=='move'&&t.note?`・${esc(t.category)}`:''}${t.type==='move'&&t.note?`・${esc(t.note)}`:''}</small></span>
+        <span class="num" style="text-align:right"><span class="${r.v>0?'c-in':'c-out'}">${r.v>0?'+':''}${money(r.v)}</span><small style="display:block;color:var(--dim);font-size:12px">${r.future?'':'餘 '+money(r.bal)}</small></span></div>`}).join('')}</div>`
+      :`<p class="hint" style="text-align:center">${q?'沒有符合的紀錄':'這個月沒有紀錄'}</p>`}
+    <p class="hint">點一筆可以修改。「餘」是記完這筆之後的帳戶餘額。</p>
+    <div class="acts"><button class="btn" onclick="closeSheet()">完成</button></div>`;
+}
+function openTxFor(id){openTx();draft.accountId=id;drawTx()}
 
 let loanAll=false;
 function openLoanView(id){loanAll=false;openSheet('');drawLoan(id)}
