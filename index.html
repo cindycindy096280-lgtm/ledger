@@ -422,12 +422,22 @@ function recTx(r,date){
   return {id:uid(),ts:Date.now(),type:r.type,amount:r.amount,accountId:r.accountId,toAccountId:'',
     category:r.category,projectId:r.projectId||'',date,note:r.name,recId:r.id,recFor:date};
 }
+/* 國外交易手續費：照週期性付款設定的 %，另外記一筆（銀行帳單上也是分開的一行） */
+function recFeeSync(r,t){
+  const old=db.txs.find(x=>x.recFee&&x.recId===r.id&&x.recFor===(t.recFor||t.date));
+  const pct=+r.feePct||0;
+  if(!(pct>0)||r.type!=='out'){if(old)db.txs=db.txs.filter(x=>x!==old);return}
+  if(!db.categories.out.includes('手續費'))db.categories.out.push('手續費');
+  const amt=Math.round(t.amount*pct/100);
+  if(old)Object.assign(old,{amount:amt,date:t.date,accountId:t.accountId});
+  else if(amt>0)db.txs.push({id:uid(),ts:Date.now()+1,type:'out',amount:amt,accountId:t.accountId,toAccountId:'',category:'手續費',projectId:r.projectId||'',date:t.date,note:`${r.name} 國外交易手續費`,recId:r.id,recFee:1,recFor:t.recFor||t.date});
+}
 function postRecurring(){
   const td=today();let n=0;
   for(const r of db.recurring){
     if(!r.start||r.start>td)continue;
     const from=r.posted?addDays(r.posted,1):r.start;
-    for(const d of occurrences(r,from,td)){if(db.txs.some(t=>t.recId===r.id&&(t.recFor||t.date)===d))continue;db.txs.push(recTx(r,d));n++}
+    for(const d of occurrences(r,from,td)){if(db.txs.some(t=>t.recId===r.id&&!t.recFee&&(t.recFor||t.date)===d))continue;const t=recTx(r,d);db.txs.push(t);recFeeSync(r,t);n++}
     r.posted=td;
   }
   if(n)save();
@@ -1611,6 +1621,7 @@ function setItems(){
       ['匯出備份（JSON）',lastBackup()?`上次 ${md(ds(new Date(lastBackup())))}`:'還沒備份過','exportJSON()'],
       ['從備份匯入','',"$('#fileIn').click()"],
       ['貼上通知記帳（刷卡、支付通知）','','openPaste()'],
+      ['週期性付款的通知自動入帳',lay().ntfAutoRec===false?'關閉':'開啟','lay().ntfAutoRec=lay().ntfAutoRec===false;save();render()'],
       ['掃發票記帳','','openScan()'],
       ['匯入載具發票（財政部平台匯出檔）','',"$('#invCsv').value='';$('#invCsv').click()"],
       ['從其他記帳 App 匯入（Excel／CSV）','',"$('#xlsIn').value='';$('#xlsIn').click()"]]],
@@ -1734,14 +1745,18 @@ function ntfCat(n){
 }
 /* 週期性付款：通知的扣款日常常跟設定的日期不一樣，前後 10 天內、金額差不多就視為同一筆 */
 function ntfRec(n,acc){
-  const near=(a,b)=>Math.abs(a-b)<=Math.max(3,b*0.1),dd=(a,b)=>Math.abs((pd(a)-pd(b))/864e5),best=[];
-  const nm=(r)=>{const a=(r.name||'').toLowerCase(),b=(n.merchant||'').toLowerCase();return a&&b&&(a.includes(b)||b.includes(a))};
+  const dd=(a,b)=>Math.abs((pd(a)-pd(b))/864e5),best=[],raw=(n.raw+' '+(n.merchant||'')).toLowerCase();
+  const near=(r)=>Math.abs(n.amount-(+r.amount||0))<=Math.max(3,(+r.amount||0)*(r.vary?0.25:0.1));
+  const nm=(r)=>{const a=(r.name||'').toLowerCase(),b=(n.merchant||'').toLowerCase();
+    if(a&&b&&(a.includes(b)||b.includes(a)))return true;
+    return (r.kw||'').toLowerCase().split(/[,，\s]+/).filter(Boolean).some(k=>raw.includes(k))||(a.length>=3&&raw.includes(a))};
   for(const r of db.recurring){
-    if(r.type!==n.type||!near(n.amount,+r.amount||0))continue;
+    if(r.type!==n.type||!near(r))continue;
     if(r.accountId!==acc&&!nm(r))continue;
-    for(const t of db.txs)if(t.recId===r.id&&!t.ntfOk&&dd(t.date,n.date)<=10)best.push({kind:'posted',r,t,gap:dd(t.date,n.date)});
+    const bonus=nm(r)?-5:0;
+    for(const t of db.txs)if(t.recId===r.id&&!t.recFee&&!t.ntfOk&&dd(t.date,n.date)<=10)best.push({kind:'posted',r,t,gap:dd(t.date,n.date)+bonus});
     for(const d of occurrences(r,addDays(n.date,-10),addDays(n.date,10)))
-      if(!db.txs.some(t=>t.recId===r.id&&(t.recFor||t.date)===d))best.push({kind:'upcoming',r,d,gap:dd(d,n.date)});
+      if(!db.txs.some(t=>t.recId===r.id&&!t.recFee&&(t.recFor||t.date)===d))best.push({kind:'upcoming',r,d,gap:dd(d,n.date)+bonus});
   }
   return best.sort((a,b)=>a.gap-b.gap)[0]||null;
 }
@@ -1786,6 +1801,9 @@ function pasteParse(){
     return {n,done,dup,rec,on:!done&&!dup,acc,cat:rec?rec.r.category:ntfCat(n),note:rec?rec.r.name:n.merchant||(n.wallet?n.wallet+' 付款':'')||'',date:n.date};
   });
   drawPaste();
+  if(pst.single&&pst.rows.length===1&&pst.rows[0].rec&&pst.rows[0].on&&lay().ntfAutoRec!==false){
+    const r=pst.rows[0];setTimeout(()=>{pasteSave();toast(`已自動記錄週期性付款「${r.rec.r.name}」${money(r.n.amount)}`)},600);
+  }
 }
 function drawPaste(){
   const box=$('#pres');if(!box)return;
@@ -1817,8 +1835,14 @@ function pasteSave(){
   const on=pst.rows.filter(r=>r.on);if(!on.length)return toast('沒有勾選要入帳的');
   for(const r of on){
     const date=r.date||r.n.date;
-    if(r.rec&&r.rec.kind==='posted'){Object.assign(r.rec.t,{date,amount:r.n.amount,accountId:r.acc,category:r.cat,ntfOk:1,ntf:1});continue}
-    if(r.rec&&r.rec.kind==='upcoming'){db.txs.push({...recTx(r.rec.r,r.rec.d),date,amount:r.n.amount,accountId:r.acc,category:r.cat,note:(r.note||'').trim()||r.rec.r.name,ntfOk:1,ntf:1});continue}
+    if(r.rec){
+      const R=r.rec.r;let t;
+      if(r.rec.kind==='posted'){t=r.rec.t;Object.assign(t,{date,amount:r.n.amount,accountId:r.acc,category:r.cat,ntfOk:1,ntf:1,checked:true})}
+      else{t={...recTx(R,r.rec.d),date,amount:r.n.amount,accountId:r.acc,category:r.cat,note:(r.note||'').trim()||R.name,ntfOk:1,ntf:1,checked:true};db.txs.push(t)}
+      recFeeSync(R,t);
+      if(R.vary)R.amount=r.n.amount;
+      continue;
+    }
     db.txs.push({id:uid(),ts:Date.now(),type:r.n.type,amount:r.n.amount,accountId:r.acc,toAccountId:'',category:r.cat,projectId:'',date,note:(r.note||'').trim(),ntf:1});
   }
   for(const r of pst.rows)if(r.on||r.dup)db.ntfSeen.push(...r.n.hashes);
@@ -3246,6 +3270,9 @@ function drawRec(){
     <p class="hint">${r.freq==='monthly'?'遇到小月會在月底扣款。':r.freq==='weekly'?'以開始日是星期幾為準。':'以開始日的月、日為準。'}</p>
     <div class="two"><div class="f"><label>開始日</label><input id="rs" type="date" value="${r.start}"></div>
       <div class="f"><label>結束日（選填）</label><input id="re" type="date" value="${r.end||''}"></div></div>
+    ${r.type==='out'?`<label class="toggle"><input type="checkbox" id="rv" ${r.vary?'checked':''}> 金額會變動（外幣訂閱、用多少扣多少）</label>
+    <div class="two"><div class="f"><label>國外交易手續費 %（選填）</label><input id="rfee" type="number" inputmode="decimal" step="0.1" value="${r.feePct||''}" placeholder="例：1.5"></div>
+      <div class="f"><label>通知上的店名（選填）</label><input id="rkw" value="${esc(r.kw||'')}" placeholder="例：ANTHROPIC"></div></div>`:''}
     <div class="acts">${editing?`<button class="btn del" onclick="delRec('${r.id}')">刪除</button>`:''}
       <button class="btn ghost" onclick="openRecList()">返回</button><button class="btn" onclick="saveRec()">儲存</button></div>`;
 }
@@ -3255,6 +3282,7 @@ function syncRec(){
   if(g('rac'))rdraft.accountId=g('rac').value; if(g('rc'))rdraft.category=g('rc').value;
   if(g('rp'))rdraft.projectId=g('rp').value; if(g('rf'))rdraft.freq=g('rf').value;
   if(g('rd'))rdraft.day=g('rd').value; if(g('rs'))rdraft.start=g('rs').value; if(g('re'))rdraft.end=g('re').value;
+  if(g('rv'))rdraft.vary=g('rv').checked; if(g('rfee'))rdraft.feePct=parseFloat(g('rfee').value)||0; if(g('rkw'))rdraft.kw=g('rkw').value.trim();
 }
 async function saveRec(){
   syncRec();const r=rdraft;
