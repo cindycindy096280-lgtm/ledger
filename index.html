@@ -1791,6 +1791,7 @@ function drawPaste(){
   const box=$('#pres');if(!box)return;
   const R=pst.rows;
   if(!pst.text.trim()){box.innerHTML='';return}
+  if(!R.length&&/\{not_|\[notification/.test(pst.text)){box.innerHTML='<p class="hint" style="color:var(--in)">✓ MacroDroid 連線成功（這是測試，沒有通知內容）</p>';return}
   if(!R.length){box.innerHTML='<p class="hint" style="color:var(--out)">找不到金額。請確認貼的是消費或付款通知；格式比較特別的，可以把通知文字傳給 Claude 調整。</p>';return}
   const on=R.filter(r=>r.on),merged=R.reduce((s,r)=>s+r.n.raws.length,0)-R.length;
   box.innerHTML=`<div class="sub" style="margin:8px 0 4px">${R.reduce((s,r)=>s+r.n.raws.length,0)} 則通知 → ${R.length} 筆</div>
