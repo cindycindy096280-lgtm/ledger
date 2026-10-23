@@ -1688,7 +1688,7 @@ function ntfDate(t){
 }
 function ntfTime(t){const m=t.match(/(?:^|\D)([01]?\d|2[0-3])[:：]([0-5]\d)(?!\d)/);return m?`${pad(+m[1])}:${m[2]}`:''}
 function ntfMerchant(t){
-  let m;const tidy=x=>(x||'').replace(/(NT\$|NTD|TWD|新臺幣|新台幣|\$)\s*[\d,.]+|[\d,.]+\s*元|\d{1,4}[\/\-.月]\d{1,2}日?|\d{1,2}[:：]\d{2}(:\d{2})?|末(四|4)碼\s*\d{4}|已?(成功|完成)|交易|消費|刷卡|付款|金額|。.*$/g,' ').replace(/^[\s,，:：、（(]+|[\s,，。:：、）)]+$/g,'').replace(/\s{2,}/g,' ').trim().slice(0,30);
+  let m;const tidy=x=>(x||'').replace(/\s*(可用額度|剩餘額度|額度|餘額|若非本人|如非本人|如有疑問|詳情|查詢|謝謝|感謝).*$/,'').replace(/(NT\$|NTD|TWD|新臺幣|新台幣|\$)\s*[\d,.]+|[\d,.]+\s*元|\d{1,4}[\/\-.月]\d{1,2}日?|\d{1,2}[:：]\d{2}(:\d{2})?|末(四|4)碼\s*\d{4}|已?(成功|完成)|交易|消費|刷卡|付款|金額|。.*$/g,' ').replace(/^[\s,，:：、（(]+|[\s,，。:：、）)]+$/g,'').replace(/\s{2,}/g,' ').trim().slice(0,30);
   for(const re of [/(?:商店|特店|店家|商家|商戶|消費地點|地點)(?:名稱)?[:：]\s*([^\n,，。;；]+)/,/在\s*([^\n,，。]+?)\s*(?:消費|刷卡|付款)/,/於\s*([^\d\n,，。][^\n,，。]*?)\s*(?:消費|刷卡|付款)/,/[（(]([^()（）\d][^()（）]{1,25})[)）]/,
     /(?:消費|刷卡|付款|支付|交易|退款|退貨)[^\n,，。]*?(?:元|NT\$\s*[\d,]+|[\d,]+)\s*[,，]?\s*([^\n,，。\d][^\n,，。]{1,30})/,/(?:付款給|支付給|付款對象)[:：]?\s*([^\n,，。]+)/]){
     if((m=t.match(re))){const v=tidy(m[1]);if(v&&!/^(您|貴|本|此|該)/.test(v)&&!/可用額度|餘額|帳戶|卡片?$/.test(v))return v}
@@ -1708,7 +1708,7 @@ function ntfSplit(text){
   const out=[];
   for(const blk of text.replace(/\r/g,'').split(/\n\s*\n+/)){
     const lines=blk.split('\n').map(x=>x.trim()).filter(Boolean);
-    const hasAmt=l=>ntfAmount(l)>0&&/消費|刷卡|付款|扣款|支付|交易|退款|轉|入帳|NT\$|元/.test(l);
+    const hasAmt=l=>ntfAmount(l)>0&&/消費|刷卡|付款|扣款|支付|交易|退款|轉帳|轉出|轉入|入帳/.test(l);
     if(lines.filter(hasAmt).length<=1){if(lines.length)out.push(lines.join('\n'));continue}
     let cur=[];for(const l of lines){cur.push(l);if(hasAmt(l)){out.push(cur.join('\n'));cur=[]}}
     if(cur.length&&out.length)out[out.length-1]+='\n'+cur.join('\n');
@@ -1762,11 +1762,11 @@ function ntfMerge(list){
   return out;
 }
 let pst={text:'',rows:[]};
-function openPaste(text){
+function openPaste(text,single){
   try{stopScan()}catch(e){}
-  pst={text:text||'',rows:[]};
+  pst={text:text||'',rows:[],single:!!single};
   openSheet(`<h2>貼上通知記帳</h2>
-    <textarea id="ptx" class="ptxt" placeholder="貼上通知文字" oninput="pst.text=this.value;clearTimeout(window._pt);window._pt=setTimeout(pasteParse,350)">${esc(pst.text)}</textarea>
+    <textarea id="ptx" class="ptxt" placeholder="貼上通知文字" oninput="pst.text=this.value;pst.single=false;clearTimeout(window._pt);window._pt=setTimeout(pasteParse,350)">${esc(pst.text)}</textarea>
     <div style="display:flex;gap:14px;margin:6px 0 4px"><button class="link" onclick="pasteClip()">📋 從剪貼簿貼上</button><button class="link" onclick="$('#ptx').value='';pst.text='';pasteParse()">清空</button></div>
     <div id="pres"></div>`);
   if(pst.text)pasteParse();else setTimeout(()=>{const e=$('#ptx');e&&e.focus()},250);
@@ -1776,7 +1776,7 @@ async function pasteClip(){
   catch(e){toast('沒辦法讀剪貼簿，請長按文字框選「貼上」')}
 }
 function pasteParse(){
-  const parts=ntfSplit(pst.text).map(ntfParse).filter(Boolean),seen=new Set(db.ntfSeen),td=today();
+  const parts=(pst.single?[pst.text]:ntfSplit(pst.text)).map(ntfParse).filter(Boolean),seen=new Set(db.ntfSeen),td=today();
   const merged=ntfMerge(parts);
   pst.rows=merged.map(n=>{
     const done=n.hashes.some(h=>seen.has(h));
@@ -1837,7 +1837,7 @@ function checkShare(){
     parts.push(i>=0?dec(raw.slice(raw.indexOf('=',i)+1)):q.get('url'));
     const t=parts.filter(Boolean).join('\n').trim();
     history.replaceState(null,'',location.pathname);
-    if(t)setTimeout(()=>openPaste(t),400);
+    if(t)setTimeout(()=>openPaste(t,true),400);
   }catch(e){}
 }
 
