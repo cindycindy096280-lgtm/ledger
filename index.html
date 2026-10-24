@@ -1780,9 +1780,18 @@ function ntfMerge(list){
   return out;
 }
 let pst={text:'',rows:[]};
+/* 自動化 App 帶進來的文字有時被編碼了兩次（%E5%9C%8B…），解到看得懂為止 */
+function deepDecode(s){
+  s=String(s||'');
+  for(let k=0;k<4&&/%[0-9A-Fa-f]{2}/.test(s);k++){
+    const d=s.replace(/(%[0-9A-Fa-f]{2})+/g,m=>{try{return decodeURIComponent(m)}catch(e){return m}});
+    if(d===s)break;s=d;
+  }
+  return s;
+}
 function openPaste(text,single){
   try{stopScan()}catch(e){}
-  pst={text:text||'',rows:[],single:!!single};
+  pst={text:deepDecode(text||''),rows:[],single:!!single};
   openSheet(`<h2>貼上通知記帳</h2>
     <textarea id="ptx" class="ptxt" placeholder="貼上通知文字" oninput="pst.text=this.value;pst.single=false;clearTimeout(window._pt);window._pt=setTimeout(pasteParse,350)">${esc(pst.text)}</textarea>
     <div style="display:flex;gap:14px;margin:6px 0 4px"><button class="link" onclick="pasteClip()">📋 從剪貼簿貼上</button><button class="link" onclick="$('#ptx').value='';pst.text='';pasteParse()">清空</button></div>
@@ -1794,6 +1803,7 @@ async function pasteClip(){
   catch(e){toast('沒辦法讀剪貼簿，請長按文字框選「貼上」')}
 }
 function pasteParse(){
+  if(/%[0-9A-Fa-f]{2}/.test(pst.text)){const d=deepDecode(pst.text);if(d!==pst.text){pst.text=d;const e=$('#ptx');if(e)e.value=d}}
   const parts=(pst.single?[pst.text]:ntfSplit(pst.text)).map(ntfParse).filter(Boolean),seen=new Set(db.ntfSeen),td=today();
   const merged=ntfMerge(parts);
   pst.rows=merged.map(n=>{
