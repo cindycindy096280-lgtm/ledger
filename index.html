@@ -1708,12 +1708,15 @@ function ntfMerchant(t){
 }
 function ntfParse(raw){
   const t=raw.replace(/\s+/g,' ').trim();if(!t)return null;
-  const amount=ntfAmount(t);if(!(amount>0))return null;
+  const amount=ntfAmount(t);
+  /* 有些通知（例如銀行的 LINE 官方帳號）只寫「您有一筆刷卡交易」，金額要點進去才看得到 → 先認出銀行，金額讓使用者補 */
+  const needAmt=!(amount>0);
+  if(needAmt&&!(/消費|刷卡|交易|扣款|付款|支付/.test(t)&&(NTF_BANKS.some(b=>t.toLowerCase().includes(b.toLowerCase()))||NTF_WALLET.test(t))))return null;
   const refund=/退款|退貨|退刷|取消交易|沖正/.test(t),inc=!refund&&/轉入|入帳通知|存入|薪資入帳|收款/.test(t)&&!/消費|刷卡|付款|扣款/.test(t);
   const last4=(t.match(/末\s*(?:四|4)\s*碼\s*[:：]?\s*(\d{4})|卡號?\s*[*＊xX\-•·]+\s*(\d{4})|[*＊xX]{2,}\s*(\d{4})/)||[]).slice(1).find(Boolean)||'';
   const bank=NTF_BANKS.find(b=>t.toLowerCase().includes(b.toLowerCase()))||'';
   const wallet=(t.match(NTF_WALLET)||[''])[0];
-  return {raw:raw.trim(),hash:ntfHash(t),amount,type:refund||inc?'in':'out',refund,date:ntfDate(t),time:ntfTime(t),merchant:ntfMerchant(t),last4,bank,wallet,card:/信用卡|卡\s*末|刷卡|卡號|簽帳/.test(t)};
+  return {raw:raw.trim(),hash:ntfHash(t),amount:needAmt?0:amount,needAmt,type:refund||inc?'in':'out',refund,date:ntfDate(t),time:ntfTime(t),merchant:ntfMerchant(t),last4,bank,wallet,card:/信用卡|卡\s*末|刷卡|卡號|簽帳/.test(t)};
 }
 function ntfSplit(text){
   const out=[];
@@ -1765,7 +1768,7 @@ function ntfMerge(list){
   const out=[];
   for(const n of list){
     const mins=x=>x.time?(+x.time.slice(0,2))*60+(+x.time.slice(3)):null;
-    const g=out.find(o=>o.type===n.type&&Math.abs(o.amount-n.amount)<0.01&&o.date===n.date&&(mins(o)==null||mins(n)==null||Math.abs(mins(o)-mins(n))<=10));
+    const g=!n.needAmt&&out.find(o=>!o.needAmt&&o.type===n.type&&Math.abs(o.amount-n.amount)<0.01&&o.date===n.date&&(mins(o)==null||mins(n)==null||Math.abs(mins(o)-mins(n))<=10));
     if(!g){out.push({...n,raws:[n.raw],hashes:[n.hash]});continue}
     g.raws.push(n.raw);g.hashes.push(n.hash);
     if(!g.time&&n.time)g.time=n.time;
@@ -1796,9 +1799,9 @@ function pasteParse(){
   pst.rows=merged.map(n=>{
     const done=n.hashes.some(h=>seen.has(h));
     const lo=addDays(n.date,-1),hi=addDays(n.date,1);
-    const acc=ntfAcct(n),rec=done?null:ntfRec(n,acc);
-    const dup=!done&&!rec&&db.txs.find(t=>t.type===n.type&&Math.abs(t.amount-n.amount)<0.01&&t.date>=lo&&t.date<=hi);
-    return {n,done,dup,rec,on:!done&&!dup,acc,cat:rec?rec.r.category:ntfCat(n),note:rec?rec.r.name:n.merchant||(n.wallet?n.wallet+' 付款':'')||'',date:n.date};
+    const acc=ntfAcct(n),rec=done||n.needAmt?null:ntfRec(n,acc);
+    const dup=!done&&!rec&&!n.needAmt&&db.txs.find(t=>t.type===n.type&&Math.abs(t.amount-n.amount)<0.01&&t.date>=lo&&t.date<=hi);
+    return {n,done,dup,rec,on:!done&&!dup&&!n.needAmt,acc,cat:rec?rec.r.category:ntfCat(n),note:rec?rec.r.name:n.merchant||(n.wallet?n.wallet+' 付款':'')||'',date:n.date};
   });
   drawPaste();
   if(pst.single&&pst.rows.length===1&&pst.rows[0].rec&&pst.rows[0].on&&lay().ntfAutoRec!==false){
@@ -1817,7 +1820,8 @@ function drawPaste(){
       <input type="checkbox" class="ck" ${r.on?'checked':''} ${r.done?'disabled':''} onchange="pst.rows[${i}].on=this.checked;pasteSum()">
       <span class="nm" style="flex:1">${r.n.type==='in'?(r.n.refund?'退款':'收入'):'支出'}${r.n.raws.length>1?` <span class="tag">合併 ${r.n.raws.length} 則</span>`:''}${r.rec?` <span class="tag">週期：${esc(r.rec.r.name)}${r.rec.kind==='posted'?'（更新原紀錄）':''}</span>`:''}
         <small>${r.date}${r.n.time?' '+r.n.time:''}${r.done?'・<b>這則通知已經記過了</b>':r.dup?`・<b style="color:var(--out)">可能已經記過（${esc(r.dup.note||r.dup.category)} ${md(r.dup.date)} ${esc(acctName(r.dup.accountId))}）</b>`:''}</small></span>
-      <span class="num ${r.n.type==='in'?'c-in':'c-out'}">${money(r.n.amount)}</span></div>
+      ${r.n.needAmt?`<input class="num" type="number" inputmode="decimal" placeholder="金額" value="${r.n.amount||''}" style="width:96px;border:0;background:var(--bg);border-radius:10px;padding:7px 9px;font:inherit;text-align:right" oninput="pasteAmt(${i},this.value)" ${i===0?'autofocus':''}>`:`<span class="num ${r.n.type==='in'?'c-in':'c-out'}">${money(r.n.amount)}</span>`}</div>
+      ${r.n.needAmt?`<div class="sub" style="margin:4px 0 0 32px;color:var(--out)">通知沒寫金額，請補上</div>`:''}
       ${r.done?'':`<div class="ed"><input value="${esc(r.note)}" placeholder="店家／備註" oninput="pst.rows[${i}].note=this.value">
         <input type="date" value="${r.date}" onchange="pst.rows[${i}].date=this.value">
         <select onchange="pasteAcct(${i},this.value)">${acctOpts(r.acc,a=>a.type!=='loan')}</select>
@@ -1826,13 +1830,18 @@ function drawPaste(){
     <div class="acts"><button class="btn ghost" onclick="closeSheet()">取消</button><button class="btn" id="pgo" onclick="pasteSave()"></button></div>`;
   pasteSum();
 }
+function pasteAmt(i,v){
+  const r=pst.rows[i],a=parseFloat(v)||0;r.n.amount=a;r.on=a>0;
+  r.rec=a>0?ntfRec(r.n,r.acc):null;if(r.rec){r.cat=r.rec.r.category;r.note=r.rec.r.name}
+  const ck=document.querySelectorAll('#pres .prow .ck')[i];if(ck)ck.checked=r.on;pasteSum();
+}
 function pasteSum(){const on=pst.rows.filter(r=>r.on),b=$('#pgo');if(b)b.textContent=on.length?`入帳 ${on.length} 筆・${money(on.reduce((s,r)=>s+(r.n.type==='in'?-1:1)*r.n.amount,0))}`:'沒有勾選'}
 function pasteAcct(i,v){
   const r=pst.rows[i];r.acc=v;const m=(lay().ntfMap||(lay().ntfMap={}));
   if(r.n.last4)m['4:'+r.n.last4]=v;else if(r.n.bank||r.n.wallet)m['b:'+(r.n.bank||r.n.wallet)]=v;save();
 }
 function pasteSave(){
-  const on=pst.rows.filter(r=>r.on);if(!on.length)return toast('沒有勾選要入帳的');
+  const on=pst.rows.filter(r=>r.on&&r.n.amount>0);if(!on.length)return toast(pst.rows.some(r=>r.n.needAmt&&!(r.n.amount>0))?'請先填金額':'沒有勾選要入帳的');
   for(const r of on){
     const date=r.date||r.n.date;
     if(r.rec){
